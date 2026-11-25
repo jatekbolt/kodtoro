@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Codebreaker</title>
+<meta name="description" content="Kódtörő: fejtsd meg a rejtett színkódot. Codebreaker: crack the hidden color code.">
+<meta property="og:title" content="Kódtörő · Codebreaker">
+<meta property="og:description" content="Játsszunk Kódtörőt! Koppints a csatlakozáshoz. · Let’s play Codebreaker! Tap to join.">
+<meta name="theme-color" content="#855E4C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kódtörő">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23855E4C'/%3E%3Ccircle cx='30' cy='30' r='16' fill='%23D2302C'/%3E%3Ccircle cx='70' cy='30' r='16' fill='%23F0CC35'/%3E%3Ccircle cx='30' cy='70' r='16' fill='%233DB56C'/%3E%3Ccircle cx='70' cy='70' r='16' fill='%232B9FD9'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --desk: #E2E8EF; --paper: #F9FBFD; --table: #E9E9E6; --ink-x: #1E3F9C; --text: #22303F; --muted: #586676; --edge: #C9D4E0;
+    /* the plastic board */
+    --plastic: #855E4C; --plastic-hi: #9A715D; --plastic-lo: #6E4C3C; --recess: #6A4839; --hole: #22150F; --emboss: #A9826D;
+    --cell: 40px;
+    --hand: "Kalam", "Comic Sans MS", "Segoe Print", "Bradley Hand", cursive;
+    --sans: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+    color-scheme: light;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --desk: #0F151D; --paper: #18212D; --table: #1A222D; --ink-x: #86A9FF; --text: #E2E8F0; --muted: #9AA8B8; --edge: #2A3647;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --desk: #0F151D; --paper: #18212D; --table: #1A222D; --ink-x: #86A9FF; --text: #E2E8F0; --muted: #9AA8B8; --edge: #2A3647;
+    color-scheme: dark;
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+  [hidden] { display: none !important; }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body { margin: 0; background: var(--desk); color: var(--text); font-family: var(--sans); font-size: 1rem; line-height: 1.5; }
+
+  .layout {
+    max-width: 1180px; margin: 0 auto; padding: 20px;
+    display: grid; gap: 20px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "intro" "table" "controls";
+  }
+  @media (min-width: 900px) {
+    .layout {
+      grid-template-columns: minmax(270px, 320px) minmax(0, 1fr);
+      grid-template-areas: "intro table" "controls table";
+      grid-template-rows: auto 1fr;
+      align-items: start; padding: 32px; gap: 24px 36px;
+    }
+  }
+  .intro { grid-area: intro; }
+  .lang { display: flex; gap: .35rem; margin: 0 0 .9rem; }
+  .lang-btn {
+    font: .85rem var(--sans); padding: .25rem .7rem; border-radius: 999px; cursor: pointer;
+    border: 1.5px solid var(--edge); background: var(--paper); color: var(--muted);
+  }
+  .lang-btn[aria-pressed="true"] { border-color: var(--ink-x); color: var(--ink-x); font-weight: 700; }
+  h1 {
+    font-family: var(--hand); font-weight: 700;
+    font-size: clamp(2.6rem, 7vw, 3.6rem); line-height: 1;
+    color: var(--ink-x); margin: 0 0 .35rem;
+    transform: rotate(-2deg); transform-origin: left center;
+  }
+  .rules { margin: 0 0 1.1rem; color: var(--muted); max-width: 38ch; }
+  .status { font-family: var(--hand); font-size: 1.4rem; line-height: 1.3; min-height: 2.6em; margin: 0 0 .6rem; }
+  .score { display: flex; align-items: flex-end; gap: .9rem; font-family: var(--hand); }
+  .score .side { display: grid; justify-items: center; line-height: 1.1; min-width: 4.5rem; }
+  .score .num { font-size: 2.4rem; font-weight: 700; }
+  .score small { font-family: var(--sans); font-size: .85rem; color: var(--muted); max-width: 9rem; text-align: center; overflow-wrap: anywhere; }
+  .score .colon { font-size: 2.2rem; padding-bottom: 1.35rem; color: var(--muted); }
+  .score-note { font-size: .9rem; color: var(--muted); margin: .25rem 0 0; max-width: 38ch; }
+  .dot { display: inline-block; width: .55rem; height: .55rem; border-radius: 50%; margin-right: .35rem; background: var(--muted); vertical-align: middle; }
+  .dot.on { background: #2E9E5B; }
+
+  /* ---------- the table the board lies on ---------- */
+  .table {
+    grid-area: table; background: var(--table); border-radius: 16px; padding: 26px 22px;
+    display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; justify-content: center; min-width: 0;
+  }
+
+  /* ---------- the plastic board ---------- */
+  .board {
+    background: linear-gradient(165deg, var(--plastic-hi), var(--plastic) 45%, var(--plastic-lo));
+    border-radius: 14px; padding: 14px 14px 18px;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.16), inset 0 -3px 0 rgba(0,0,0,.25), 0 14px 26px rgba(40,24,14,.38), 0 2px 4px rgba(40,24,14,.3);
+    display: grid; gap: 14px; width: max-content;
+  }
+  .top { display: flex; align-items: center; gap: 10px; }
+  .panel-frame {
+    display: flex; gap: 6px; padding: 6px; border-radius: 6px;
+    background: var(--plastic);
+    box-shadow: 0 0 0 3px var(--plastic-hi), 0 0 0 4px rgba(0,0,0,.18), inset 0 1px 2px rgba(0,0,0,.25);
+    position: relative;
+  }
+  .panel-frame.current { box-shadow: 0 0 0 3px #E9C46A, 0 0 0 4px rgba(0,0,0,.18), inset 0 1px 2px rgba(0,0,0,.25); }
+  .shield {
+    position: absolute; inset: -2px; border-radius: 6px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 2px, transparent 2px 9px),
+      linear-gradient(180deg, var(--plastic-hi), var(--plastic-lo));
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.2), inset 0 -2px 0 rgba(0,0,0,.25), 0 3px 6px rgba(0,0,0,.3);
+  }
+  .logo {
+    width: var(--cell); height: var(--cell); border-radius: 50%; margin-left: 8px;
+    box-shadow: inset 0 0 0 3px var(--emboss), inset 0 0 0 5px var(--plastic-lo), inset 0 0 0 9px var(--plastic);
+    background: radial-gradient(circle, var(--plastic-lo) 0 3px, transparent 4px);
+    opacity: .8;
+  }
+  .rows { display: flex; flex-direction: column-reverse; gap: 6px; }
+  .row { display: flex; gap: 6px; align-items: center; padding: 3px; margin: -3px; border-radius: 8px; }
+  .row.current { box-shadow: 0 0 0 2px rgba(233,196,106,.85); }
+  .cell, .keybox {
+    width: var(--cell); height: var(--cell); border-radius: 4px; padding: 0; border: 0; margin: 0;
+    background: var(--recess);
+    box-shadow: inset 2px 2px 3px rgba(0,0,0,.45), inset -1px -1px 0 rgba(255,255,255,.12);
+    display: grid; place-items: center; color: inherit;
+  }
+  .keybox { margin-left: 10px; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; padding: 4px; }
+  button.cell, button.khole { cursor: pointer; }
+  .cell.target { box-shadow: inset 2px 2px 3px rgba(0,0,0,.45), 0 0 0 2px #E9C46A; }
+  .cell svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .khole { width: 100%; height: 100%; padding: 0; border: 0; background: transparent; display: grid; place-items: center; border-radius: 50%; }
+  .khole svg, .kspot svg { width: 13px; height: 13px; display: block; overflow: visible; }
+  .kspot { display: grid; place-items: center; }
+  .keybox.editable { box-shadow: inset 2px 2px 3px rgba(0,0,0,.45), 0 0 0 2px #E9C46A; }
+  .cell:focus-visible, .khole:focus-visible, .comp:focus-visible { outline: 2px solid #E9C46A; outline-offset: 2px; }
+  .drop svg { animation: drop .18s ease-out; }
+  @keyframes drop { from { transform: translateY(-6px) scale(.85); opacity: .3; } to { transform: none; opacity: 1; } }
+  .reveal svg { animation: drop .3s ease-out both; }
+  .reveal:nth-child(2) svg { animation-delay: .1s; }
+  .reveal:nth-child(3) svg { animation-delay: .2s; }
+  .reveal:nth-child(4) svg { animation-delay: .3s; }
+
+  /* ---------- the sorting tray ---------- */
+  .side-col { display: grid; gap: 14px; width: 100%; max-width: 236px; }
+  .tray {
+    background: linear-gradient(165deg, var(--plastic-hi), var(--plastic) 50%, var(--plastic-lo));
+    border-radius: 12px; padding: 10px;
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.16), inset 0 -3px 0 rgba(0,0,0,.25), 0 10px 20px rgba(40,24,14,.32);
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .comp {
+    position: relative; height: 66px; padding: 0; border: 0; border-radius: 5px; cursor: pointer;
+    background: var(--recess);
+    box-shadow: inset 2px 2px 4px rgba(0,0,0,.5), inset -1px -1px 0 rgba(255,255,255,.12);
+    display: grid; place-items: center;
+  }
+  .comp svg { width: 78px; height: 58px; display: block; }
+  .comp:disabled { cursor: default; }
+  .comp:disabled svg { opacity: .25; }
+  .comp .k { position: absolute; top: 3px; left: 6px; font: 700 .72rem var(--sans); color: #F1E3C8; opacity: .8; }
+  .comp .lbl { position: absolute; bottom: 3px; left: 0; right: 0; text-align: center; font: .72rem var(--sans); color: #F1E3C8; }
+  .comp.keyc svg { height: 42px; margin-top: -10px; }
+  .actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .tray-note { font-size: .9rem; margin: 0; min-height: 1.2em; color: var(--text); }
+  .legend { font-size: .9rem; color: var(--muted); margin: 0; display: grid; gap: .25rem; }
+  .legend span { display: inline-flex; align-items: center; gap: .45rem; }
+  .legend svg { width: 14px; height: 14px; }
+
+  @media (max-width: 520px) {
+    :root { --cell: 34px; }
+    .layout { padding: 14px; gap: 16px; }
+    .table { padding: 18px 10px; gap: 20px; }
+    .side-col { max-width: none; }
+    .tray { grid-template-columns: repeat(4, 1fr); }
+    .tray.keys-mode { grid-template-columns: 1fr 1fr; }
+    .comp { height: 58px; }
+    .comp svg { width: 64px; height: 50px; }
+  }
+
+  /* ---------- settings ---------- */
+  .controls { grid-area: controls; display: grid; gap: 1rem; }
+  fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+  fieldset[disabled] { opacity: .45; }
+  legend, .label { display: block; font-weight: 700; padding: 0; margin-bottom: .35rem; font-size: .95rem; }
+  .options { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .opt { position: relative; }
+  .opt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .opt span {
+    display: inline-block; padding: .4rem .75rem;
+    border: 1.5px solid var(--edge); border-radius: 8px;
+    background: var(--paper); font-size: .95rem; cursor: pointer;
+  }
+  .opt input:checked + span { border-color: var(--ink-x); color: var(--ink-x); font-weight: 700; box-shadow: inset 0 -3px 0 var(--ink-x); }
+  .opt input:focus-visible + span { outline: 2px solid var(--ink-x); outline-offset: 2px; }
+  .buttons { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .btn {
+    font: 700 1rem var(--sans); padding: .6rem 1rem; border-radius: 8px;
+    border: 2px solid var(--text); background: transparent; color: var(--text); cursor: pointer;
+  }
+  .btn.primary { background: var(--ink-x); border-color: var(--ink-x); color: var(--paper); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  .btn:focus-visible, .field:focus-visible, .lang-btn:focus-visible { outline: 2px solid var(--ink-x); outline-offset: 2px; }
+  .note { font-size: .85rem; color: var(--muted); margin: 0; }
+  .panel { display: grid; gap: .9rem; padding: 1rem; border: 1.5px dashed var(--edge); border-radius: 10px; }
+  .stack { display: grid; gap: .9rem; }
+  .row-f { display: flex; gap: .5rem; }
+  .row-f .field { flex: 1; min-width: 0; }
+  .field {
+    font: 1rem var(--sans); color: var(--text); width: 100%;
+    background: var(--paper); border: 1.5px solid var(--edge); border-radius: 8px; padding: .55rem .7rem;
+  }
+  .panel-msg { font-size: .9rem; margin: 0; min-height: 1.2em; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .drop svg, .reveal svg { animation: none; }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="pegDefs"></defs></svg>
+<main class="layout">
+  <header class="intro">
+    <div class="lang" role="group" aria-label="Language / Nyelv">
+      <button type="button" class="lang-btn" data-lang="hu" lang="hu">Magyar</button>
+      <button type="button" class="lang-btn" data-lang="en" lang="en">English</button>
+    </div>
+    <h1 data-i18n="name"></h1>
+    <p class="rules" data-i18n="rules"></p>
+    <p class="status" id="status" aria-live="polite"></p>
+    <div id="scoreBlock">
+      <div class="score" data-i18n-aria="scoreAria">
+        <div class="side"><span class="num" id="sA">0</span><small id="lA"></small></div>
+        <span class="colon" aria-hidden="true">:</span>
+        <div class="side"><span class="num" id="sB">0</span><small id="lB"></small></div>
+      </div>
+      <p class="score-note" id="scoreNote"></p>
+    </div>
+  </header>
+
+  <section class="table" data-i18n-aria="boardAria">
+    <div class="board" id="board"></div>
+    <div class="side-col">
+      <div id="trayWrap" class="stack">
+        <div class="tray" id="tray"></div>
+        <div class="actions">
+          <button class="btn primary" id="submitBtn" type="button"></button>
+          <button class="btn" id="clearBtn" type="button" data-i18n="clear"></button>
+        </div>
+      </div>
+      <button class="btn" id="peekBtn" type="button" hidden></button>
+      <p class="tray-note" id="trayNote" aria-live="polite"></p>
+      <div class="actions"><button class="btn primary" id="againBtn" type="button" data-i18n="nextRound" hidden></button></div>
+      <p class="legend" id="legend"></p>
+    </div>
+  </section>
+
+  <section class="controls" data-i18n-aria="settingsAria">
+    <fieldset>
+      <legend data-i18n="legendMode"></legend>
+      <div class="options">
+        <label class="opt"><input type="radio" name="mode" value="ai"><span data-i18n="optAi"></span></label>
+        <label class="opt"><input type="radio" name="mode" value="solve"><span data-i18n="optSolve"></span></label>
+        <label class="opt"><input type="radio" name="mode" value="pvp"><span data-i18n="optPvp"></span></label>
+        <label class="opt"><input type="radio" name="mode" value="online"><span data-i18n="optOnline"></span></label>
+      </div>
+    </fieldset>
+
+    <div class="panel" id="onlinePanel" hidden>
+      <div>
+        <label class="label" for="myName" data-i18n="yourName"></label>
+        <input class="field" id="myName" maxlength="24" autocomplete="nickname" data-i18n-ph="namePh">
+      </div>
+      <div id="lobby" class="stack">
+        <p class="note" data-i18n="lobbyNote"></p>
+        <button class="btn primary" id="inviteBtn" type="button" data-i18n="inviteBtn"></button>
+      </div>
+      <div id="ingame" class="stack" hidden>
+        <div id="inviteBox">
+          <label class="label" for="inviteLink" data-i18n="inviteLink"></label>
+          <div class="row-f">
+            <input class="field" id="inviteLink" readonly>
+            <button class="btn primary" id="shareBtn" type="button" data-i18n="share"></button>
+          </div>
+        </div>
+        <p class="note" id="connLine"></p>
+        <div class="buttons"><button class="btn" id="leaveBtn" type="button"></button></div>
+      </div>
+      <p class="panel-msg" id="onNote" aria-live="polite"></p>
+    </div>
+
+    <fieldset id="colorSet">
+      <legend data-i18n="legendColors"></legend>
+      <div class="options">
+        <label class="opt"><input type="radio" name="colors" value="6"><span data-i18n="c6"></span></label>
+        <label class="opt"><input type="radio" name="colors" value="8"><span data-i18n="c8"></span></label>
+      </div>
+    </fieldset>
+    <fieldset id="repSet">
+      <legend data-i18n="legendRep"></legend>
+      <div class="options">
+        <label class="opt"><input type="radio" name="rep" value="1"><span data-i18n="repYes"></span></label>
+        <label class="opt"><input type="radio" name="rep" value="0"><span data-i18n="repNo"></span></label>
+      </div>
+    </fieldset>
+    <div class="buttons">
+      <button class="btn" id="newBtn" type="button" data-i18n="newGame"></button>
+      <button class="btn" id="resetBtn" type="button" data-i18n="reset"></button>
+    </div>
+    <p class="note" id="settingsNote"></p>
+  </section>
+</main>
+
+<script>
+(function () {
+  const ROWS = 10, LEN = 4;
+  // The six colors of the classic Hungarian set, plus two extras for the 8-color game.
+  const COLORS = ["#D2302C", "#F0CC35", "#3DB56C", "#2B9FD9", "#EEEAE0", "#1F2629", "#EE7D2B", "#8B55C6"];
+  const KEY_BLACK = "#15191B", KEY_WHITE = "#EFE2C0";
+  const K = { settings: "kt-v1", host: "kt-host-v1", join: "kt-join-v1", secret: "kt-secret-v1",
+              name: "amoba-name", token: "amoba-token", lang: "amoba-lang" };
+  const CODE_CHARS = "abcdefghjkmnpqrstuvwxyz23456789";
+  const PEER_PREFIX = "kodtoro-5iar-";
+  const IS_WEB = location.protocol === "https:" || location.protocol === "http:";
+
+  // ---------- translations ----------
+  const huArt = n => (n === 1 || n === 5 ? "az" : "a");
+  const enIn = n => (n === 1 ? "on the first try" : `in ${n} guesses`);
+  const huIn = n => (n === 1 ? "elsőre" : `${n} tippből`);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const T = {
+    en: {
+      name: "Codebreaker", title: "Codebreaker",
+      rules: "One player hides a code of four colors, and the other has ten guesses to crack it. After each guess, the codemaker answers with key pegs: a black peg for each right color in the right place, and a white peg for each right color in the wrong place.",
+      scoreAria: "Score", boardAria: "Game board", settingsAria: "Game settings",
+      legendMode: "Play", optAi: "Crack the computer’s code", optSolve: "The computer cracks yours", optPvp: "Someone next to you", optOnline: "Someone online",
+      legendColors: "Colors", c6: "6 colors", c8: "8 colors", legendRep: "Repeated colors", repYes: "Allowed", repNo: "Not allowed",
+      newGame: "New game", reset: "Reset score", clear: "Clear", check: "Check guess", hide: "Hide code", nextRound: "Next round",
+      confirmKeys: "Confirm pegs", peekShow: "Show my code", peekHide: "Cover my code",
+      yourName: "Your name", namePh: "So the other player knows it’s you",
+      lobbyNote: "You get a link to send. When the other person opens it, you’re playing.",
+      inviteBtn: "Invite someone", inviteLink: "Invite link", share: "Share", endGame: "End game", leaveGame: "Leave game",
+      secretAria: "Secret code", legendBlack: "black: right color, right place", legendWhite: "white: right color, wrong place",
+      keyBlackLbl: "right place", keyWhiteLbl: "wrong place",
+      keyBlackAria: "Add a black peg: right color, right place (key 1)", keyWhiteAria: "Add a white peg: right color, wrong place (key 2)",
+      kholeAria: (i, k) => `Key peg ${i}: ${k}`, kBlack: "black", kWhite: "white",
+      colorNames: ["red", "yellow", "green", "blue", "white", "black", "orange", "purple"],
+      slotAria: (i, c) => `Position ${i}: ${c}`, empty: "empty", hiddenPeg: "hidden",
+      swatchAria: (c, k) => `Add ${c} (key ${k})`,
+      rowAria: (n, cs, b, w) => `Guess ${n}: ${cs}. ${b} black, ${w} white.`,
+      pendingAria: (n, cs) => `Guess ${n}: ${cs}. Waiting for key pegs.`,
+      noteLocal: "Changing a setting starts a new game. On a keyboard, press 1 to 8 to add colors (1 and 2 for black and white key pegs), Backspace to remove one and Enter to confirm.",
+      noteOnline: "Colors and repeats apply to the next game you start. On a keyboard, press 1 to 8 to add colors (1 and 2 for black and white key pegs), Backspace to remove one and Enter to confirm.",
+      cracked: "Cracked", best: "Best", played: n => `Games played: ${n}`, games: "Games", average: "Average guesses",
+      p1: "Player 1", p2: "Player 2", you: "You", them: "Them",
+      pointsNote: "The codemaker scores a point for every guess, plus one if the code isn’t cracked. You swap roles each round.",
+      wrongKeys: "That’s not right yet. Compare the guess with your code again.",
+      aiFirst: "The computer has hidden a code. Make your first guess.",
+      guessN: n => `Guess ${n} of ${ROWS}.`,
+      aiWon: n => `Cracked it ${enIn(n)}!`, aiLost: "Out of guesses. The code is shown at the top.",
+      solveHide: "Choose a secret code for the computer to crack.", thinking: "The computer is thinking…",
+      solveScore: "The computer has guessed. Place the key pegs.",
+      solveWon: n => `The computer cracked it ${enIn(n)}.`, solveLost: "The computer couldn’t crack your code!",
+      pvpHide: (p, q) => `${p} hides a code. ${q}, look away!`,
+      pvpGuess: (q, n) => `${q}’s turn to guess. Guess ${n} of ${ROWS}.`,
+      pvpScore: (p, q) => `${p}, place the key pegs. ${q}, look away while ${p} checks the code!`,
+      pvpWon: (q, n, p, pts) => `${q} cracked it ${enIn(n)}. ${p} scores ${pts}.`,
+      pvpLost: (q, p, pts) => `${q} ran out of guesses. ${p} scores ${pts}.`,
+      pts: n => `${n} point${n === 1 ? "" : "s"}`,
+      onNone: "Invite someone with a link and play together live.", connecting: "Connecting…",
+      sendInvite: "Send the invite link. The game starts when they open it.", full: "This game is full.",
+      connectingGame: "Connecting to the game…", reconnecting: "Reconnecting…",
+      oppOffline: o => `${o} is offline. They can reopen the link to carry on.`,
+      onHideMe: o => `Hide a secret code for ${o} to crack.`, onHideThem: o => `Waiting for ${o} to hide a code…`,
+      onSending: "Hiding your code…", onChecking: "Sending your guess…",
+      onGuessMe: n => `Your turn to guess. Guess ${n} of ${ROWS}.`, onGuessThem: o => `Waiting for ${o} to guess…`,
+      onScoreMe: o => `${o} has guessed. Place the key pegs.`, onScoreThem: o => `Waiting for ${o} to place the key pegs…`,
+      onKeysSent: "Sending your key pegs…",
+      onWonMe: (n, o, pts) => `You cracked it ${enIn(n)}! ${o} scores ${pts}.`,
+      onLostMe: (o, pts) => `Out of guesses. ${o} scores ${pts}.`,
+      onWonThem: (o, n, pts) => `${o} cracked your code ${enIn(n)}. You score ${pts}.`,
+      onLostThem: (o, pts) => `${o} couldn’t crack your code. You score ${pts}.`,
+      opp: "the other player", oppCap: "The other player",
+      connectedTo: n => `Connected to ${n}`, notConnected: "Not connected right now",
+      noLib: "The connection library didn’t load. Check your internet connection and reload the page.",
+      badBrowser: "This browser can’t make direct connections. Try an up-to-date Chrome, Firefox, Safari or Edge.",
+      noService: "Can’t reach the connection service right now. Retrying…",
+      notWeb: "Invite links work once the game is on a website, such as GitHub Pages. Until then, use the other modes.",
+      reopening: "Reopening your game. After a reload this can take up to a minute…",
+      waitHost: "Waiting for the other player to open the game…", lost: "Connection lost. Reconnecting…",
+      fullNote: "This game already has two players. Ask for a new invite link.",
+      bye: "The other player ended the game. Ask them for a new invite link to play again.",
+      noSecret: "The secret code was lost on the codemaker’s device, so this round starts again.",
+      copied: "Copied. Paste it into a message.", copyBlocked: "Copying was blocked. The text is selected, so copy it yourself.",
+      shareInvite: "Let’s play Codebreaker! Tap to join my game:"
+    },
+    hu: {
+      name: "Kódtörő", title: "Kódtörő",
+      rules: "Az egyik játékos elrejt egy négy színből álló kódot, a másiknak tíz tippje van megfejteni. Minden tipp után a kód rejtője találatjelzőkkel válaszol: fekete jelző jár minden jó színért jó helyen, fehér jelző minden jó színért rossz helyen.",
+      scoreAria: "Eredmény", boardAria: "Játéktábla", settingsAria: "Beállítások",
+      legendMode: "Játékmód", optAi: "Fejtsd meg a gép kódját", optSolve: "A gép fejti meg a tiédet", optPvp: "Valaki melletted", optOnline: "Valaki online",
+      legendColors: "Színek", c6: "6 szín", c8: "8 szín", legendRep: "Ismétlődő színek", repYes: "Lehet", repNo: "Nem lehet",
+      newGame: "Új játék", reset: "Eredmény nullázása", clear: "Törlés", check: "Tipp ellenőrzése", hide: "Kód elrejtése", nextRound: "Következő kör",
+      confirmKeys: "Jelzők rögzítése", peekShow: "Kódom megmutatása", peekHide: "Kódom letakarása",
+      yourName: "A neved", namePh: "Hogy a másik játékos tudja, ki vagy",
+      lobbyNote: "Kapsz egy linket, amit elküldhetsz. Amint a másik megnyitja, már játszhattok is.",
+      inviteBtn: "Meghívás", inviteLink: "Meghívó link", share: "Megosztás", endGame: "Játék vége", leaveGame: "Kilépés",
+      secretAria: "Titkos kód", legendBlack: "fekete: jó szín, jó helyen", legendWhite: "fehér: jó szín, rossz helyen",
+      keyBlackLbl: "jó helyen", keyWhiteLbl: "rossz helyen",
+      keyBlackAria: "Fekete jelző hozzáadása: jó szín, jó helyen (1-es billentyű)", keyWhiteAria: "Fehér jelző hozzáadása: jó szín, rossz helyen (2-es billentyű)",
+      kholeAria: (i, k) => `${i}. találatjelző: ${k}`, kBlack: "fekete", kWhite: "fehér",
+      colorNames: ["piros", "sárga", "zöld", "kék", "fehér", "fekete", "narancs", "lila"],
+      slotAria: (i, c) => `${i}. hely: ${c}`, empty: "üres", hiddenPeg: "rejtett",
+      swatchAria: (c, k) => `${c} hozzáadása (${k} billentyű)`,
+      rowAria: (n, cs, b, w) => `${n}. tipp: ${cs}. ${b} fekete, ${w} fehér.`,
+      pendingAria: (n, cs) => `${n}. tipp: ${cs}. A találatjelzőkre vár.`,
+      noteLocal: "Egy beállítás módosítása új játékot indít. Billentyűzeten az 1–8 gombokkal adhatsz hozzá színt (találatjelzőnél 1: fekete, 2: fehér), a Backspace-szel törölhetsz, az Enterrel véglegesíthetsz.",
+      noteOnline: "A színek és az ismétlődés a következő játékra vonatkoznak. Billentyűzeten az 1–8 gombokkal adhatsz hozzá színt (találatjelzőnél 1: fekete, 2: fehér), a Backspace-szel törölhetsz, az Enterrel véglegesíthetsz.",
+      cracked: "Megfejtve", best: "Legjobb", played: n => `Lejátszott játékok: ${n}`, games: "Játékok", average: "Átlagos tippszám",
+      p1: "1. játékos", p2: "2. játékos", you: "Te", them: "Ellenfél",
+      pointsNote: "A kód rejtője minden tippért egy pontot kap, és még egyet, ha nem fejtik meg. Körönként szerepet cseréltek.",
+      wrongKeys: "Ez még nem stimmel. Vesd össze újra a tippet a kódoddal.",
+      aiFirst: "A gép elrejtett egy kódot. Add le az első tipped.",
+      guessN: n => `Jöhet ${huArt(n)} ${n}. tipp (${ROWS}-ből).`,
+      aiWon: n => `${cap(huIn(n))} megfejtetted!`, aiLost: "Elfogytak a tippek. A kód fent látható.",
+      solveHide: "Válassz titkos kódot, amit a gépnek kell megfejtenie.", thinking: "Gondolkodik a gép…",
+      solveScore: "A gép tippelt. Tedd fel a találatjelzőket.",
+      solveWon: n => `A gép ${huIn(n)} megfejtette.`, solveLost: "A gép nem tudta megfejteni a kódodat!",
+      pvpHide: (p, q) => `${p} elrejt egy kódot. ${q}, ne nézz oda!`,
+      pvpGuess: (q, n) => `${q} találgat. Jöhet ${huArt(n)} ${n}. tipp (${ROWS}-ből).`,
+      pvpScore: (p, q) => `${p}, tedd fel a találatjelzőket. ${q}, ne nézz oda, amíg ${p} megnézi a kódot!`,
+      pvpWon: (q, n, p, pts) => `${q} ${huIn(n)} megfejtette. ${p} ${pts} kap.`,
+      pvpLost: (q, p, pts) => `${q} tippjei elfogytak. ${p} ${pts} kap.`,
+      pts: n => `${n} pontot`,
+      onNone: "Hívj meg valakit egy linkkel, és játsszatok élőben.", connecting: "Kapcsolódás…",
+      sendInvite: "Küldd el a meghívó linket. A játék akkor indul, amikor megnyitja.", full: "Ez a játék már betelt.",
+      connectingGame: "Csatlakozás a játékhoz…", reconnecting: "Újracsatlakozás…",
+      oppOffline: o => `${o} most nincs csatlakozva. Ha újra megnyitja a linket, folytathatjátok.`,
+      onHideMe: o => `Rejts el egy titkos kódot, amit ${o} próbál megfejteni.`, onHideThem: o => `Várjuk, hogy ${o} elrejtse a kódot…`,
+      onSending: "A kódod elrejtése…", onChecking: "A tipped küldése…",
+      onGuessMe: n => `Te találgatsz. Jöhet ${huArt(n)} ${n}. tipp (${ROWS}-ből).`, onGuessThem: o => `Várjuk, hogy ${o} tippeljen…`,
+      onScoreMe: o => `${o} tippelt. Tedd fel a találatjelzőket.`, onScoreThem: o => `Várjuk, hogy ${o} feltegye a találatjelzőket…`,
+      onKeysSent: "A találatjelzők küldése…",
+      onWonMe: (n, o, pts) => `${cap(huIn(n))} megfejtetted! ${o} ${pts} kap.`,
+      onLostMe: (o, pts) => `Elfogytak a tippjeid. ${o} ${pts} kap.`,
+      onWonThem: (o, n, pts) => `${o} ${huIn(n)} megfejtette a kódodat. Te ${pts} kapsz.`,
+      onLostThem: (o, pts) => `${o} nem tudta megfejteni a kódodat. Te ${pts} kapsz.`,
+      opp: "a másik játékos", oppCap: "A másik játékos",
+      connectedTo: n => `Csatlakozva: ${n}`, notConnected: "Most nincs kapcsolat",
+      noLib: "Nem töltődött be a kapcsolódáshoz szükséges program. Ellenőrizd az internetkapcsolatot, és töltsd újra az oldalt.",
+      badBrowser: "Ez a böngésző nem tud közvetlen kapcsolatot létesíteni. Próbáld egy friss Chrome, Firefox, Safari vagy Edge böngészővel.",
+      noService: "A kapcsolódási szolgáltatás most nem érhető el. Újrapróbálom…",
+      notWeb: "A meghívó linkek akkor működnek, ha a játék fent van egy weboldalon, például a GitHub Pagesen. Addig használd a többi módot.",
+      reopening: "A játékod újranyitása… Újratöltés után ez akár egy percig is tarthat.",
+      waitHost: "Várjuk, hogy a másik játékos megnyissa a játékot…", lost: "Megszakadt a kapcsolat. Újracsatlakozás…",
+      fullNote: "Ebben a játékban már ketten játszanak. Kérj új meghívó linket.",
+      bye: "A másik játékos befejezte a játékot. Ha újra játszanátok, kérj tőle új meghívó linket.",
+      noSecret: "A titkos kód elveszett a rejtő eszközén, ezért ez a kör újraindul.",
+      copied: "Kimásolva. Illeszd be egy üzenetbe.", copyBlocked: "A másolás nem sikerült. A szöveg ki van jelölve, másold ki kézzel.",
+      shareInvite: "Játsszunk Kódtörőt! Koppints a linkre, és csatlakozz:"
+    }
+  };
+  let LANG = "en";
+  function t(k, ...a) {
+    const v = (T[LANG] && k in T[LANG]) ? T[LANG][k] : T.en[k];
+    return typeof v === "function" ? v(...a) : (v == null ? "" : v);
+  }
+
+  // ---------- state ----------
+  const S = { mode: "ai", colors: 6, repeats: true,
+              stats: { ai: { solved: 0, played: 0, best: 0 }, solve: { games: 0, total: 0 }, pvp: { 1: 0, 2: 0 } } };
+  let L = { secret: null, guesses: [], pending: null, phase: "guessing", round: 1, maker: 1, colors: 6, repeats: true, peek: false };
+  const NET = { role: null, code: null, peer: null, conn: null, pendingConn: null, connected: false, ready: false,
+                lastSeen: 0, boundToken: null, everJoined: false, full: false, pending: false, g: null, oppName: "", retry: null };
+  let draft = [null, null, null, null], sel = 0, keys = [null, null, null, null];
+  let aiTimer = null, cands = null;
+  let shownGuesses = -1, shownKey = "", revealKey = "", dropSlot = -1;
+
+  const $ = s => document.querySelector(s);
+  const boardEl = $("#board"), statusEl = $("#status"), onNote = $("#onNote"), trayNote = $("#trayNote");
+
+  // ---------- helpers ----------
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  function setNote(el, key, ...args) { el._note = { key, args }; el.textContent = key ? t(key, ...args) : ""; }
+  const noteKey = el => (el._note ? el._note.key : "");
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const lsDel = k => { try { localStorage.removeItem(k); } catch (e) {} };
+  const cleanName = v => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, 24) : "");
+  const myName = () => cleanName($("#myName").value);
+  const baseUrl = () => location.href.split("#")[0];
+  function randInt(n) { const a = new Uint32Array(1); crypto.getRandomValues(a); return a[0] % n; }
+  function randomCode(n) { return Array.from({ length: n }, () => CODE_CHARS[randInt(CODE_CHARS.length)]).join(""); }
+  function myToken() { let tk = lsGet(K.token); if (!tk) { tk = randomCode(16); lsSet(K.token, tk); } return tk; }
+  function setHash(name) {
+    try {
+      if (name) history.replaceState(null, "", "#" + name);
+      else if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      const s = JSON.parse(lsGet(K.settings) || "null");
+      if (s) {
+        if (["ai", "solve", "pvp", "online"].includes(s.mode)) S.mode = s.mode;
+        if (s.colors === 6 || s.colors === 8) S.colors = s.colors;
+        if (typeof s.repeats === "boolean") S.repeats = s.repeats;
+        if (s.stats) {
+          const a = s.stats.ai || {}, b = s.stats.solve || {}, c = s.stats.pvp || {};
+          S.stats = { ai: { solved: +a.solved || 0, played: +a.played || 0, best: +a.best || 0 },
+                      solve: { games: +b.games || 0, total: +b.total || 0 }, pvp: { 1: +c[1] || 0, 2: +c[2] || 0 } };
+        }
+      }
+    } catch (e) {}
+    $("#myName").value = cleanName(lsGet(K.name) || "");
+  }
+  const save = () => lsSet(K.settings, JSON.stringify({ mode: S.mode, colors: S.colors, repeats: S.repeats, stats: S.stats }));
+
+  // ---------- rules ----------
+  function scoreCode(secret, guess) {
+    let b = 0;
+    const sc = new Array(8).fill(0), gc = new Array(8).fill(0);
+    for (let i = 0; i < LEN; i++) {
+      if (secret[i] === guess[i]) b++;
+      else { sc[secret[i]]++; gc[guess[i]]++; }
+    }
+    let w = 0;
+    for (let c = 0; c < 8; c++) w += Math.min(sc[c], gc[c]);
+    return [b, w];
+  }
+  function validCode(code, colors, repeats) {
+    if (!Array.isArray(code) || code.length !== LEN) return false;
+    if (!code.every(c => Number.isInteger(c) && c >= 0 && c < colors)) return false;
+    return repeats || new Set(code).size === LEN;
+  }
+  function randomSecret(colors, repeats) {
+    if (repeats) return Array.from({ length: LEN }, () => randInt(colors));
+    const pool = Array.from({ length: colors }, (_, i) => i);
+    for (let i = pool.length - 1; i > 0; i--) { const j = randInt(i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    return pool.slice(0, LEN);
+  }
+  function allCodes(colors, repeats) {
+    const out = [];
+    for (let a = 0; a < colors; a++) for (let b = 0; b < colors; b++) for (let c = 0; c < colors; c++) for (let d = 0; d < colors; d++) {
+      const code = [a, b, c, d];
+      if (repeats || new Set(code).size === LEN) out.push(code);
+    }
+    return out;
+  }
+  const keyCounts = () => [keys.filter(k => k === "b").length, keys.filter(k => k === "w").length];
+
+  // ---------- what the board shows ----------
+  function amMaker() { const g = NET.g; return !!g && ((NET.role === "host") === g.makerIsHost); }
+  function mySecret() {
+    try {
+      const s = JSON.parse(lsGet(K.secret) || "null");
+      if (s && NET.g && s.game === NET.code && s.round === NET.g.round && validCode(s.secret, NET.g.colors, NET.g.repeats)) return s.secret;
+    } catch (e) {}
+    return null;
+  }
+  function saveSecret(code) { lsSet(K.secret, JSON.stringify({ game: NET.code, round: NET.g.round, secret: code })); }
+
+  // secret: "edit" | "shown" | "covered" | "empty"
+  function view() {
+    const base = { colors: L.colors, repeats: L.repeats, guesses: L.guesses, phase: L.phase, pending: L.pending, secret: L.secret };
+    switch (S.mode) {
+      case "ai":
+        return { ...base, secretMode: L.phase === "over" ? "shown" : "covered", canGuess: L.phase === "guessing", scoring: false };
+      case "solve":
+        return { ...base, secretMode: L.phase === "hiding" ? "edit" : "shown", canGuess: false, scoring: L.phase === "guessing" && !!L.pending };
+      case "pvp":
+        return { ...base,
+          secretMode: L.phase === "hiding" ? "edit" : L.phase === "over" ? "shown" : (L.pending && L.peek ? "shown" : "covered"),
+          canGuess: L.phase === "guessing" && !L.pending, scoring: L.phase === "guessing" && !!L.pending };
+      case "online": {
+        const g = NET.g;
+        if (!g) return { colors: S.colors, repeats: S.repeats, guesses: [], pending: null, phase: "none", secret: null, secretMode: "empty", canGuess: false, scoring: false };
+        const maker = amMaker(), sec = maker ? mySecret() : null;
+        const ok = NET.connected && !NET.pending;
+        let secretMode = "covered", secret = null;
+        if (g.phase === "over" && (g.revealed || sec)) { secretMode = "shown"; secret = g.revealed || sec; }
+        else if (maker && sec) { secretMode = "shown"; secret = sec; }
+        else if (maker && g.phase === "hiding" && ok) secretMode = "edit";
+        return {
+          colors: g.colors, repeats: g.repeats, guesses: g.guesses, pending: g.pending, phase: g.phase, secret, secretMode,
+          canGuess: !maker && g.phase === "guessing" && ok && !g.pending,
+          scoring: maker && g.phase === "guessing" && !!g.pending && ok && !!sec
+        };
+      }
+    }
+  }
+
+  // ---------- drawing ----------
+  function mix(hex, to, amt) {
+    const a = parseInt(hex.slice(1), 16), b = parseInt(to.slice(1), 16);
+    const ch = s => Math.round(((a >> s) & 255) * (1 - amt) + ((b >> s) & 255) * amt);
+    return "#" + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
+  }
+  function buildDefs() {
+    let d = "";
+    const grad = (id, col) => `<radialGradient id="${id}" cx="36%" cy="30%" r="78%"><stop offset="0" stop-color="${mix(col, "#ffffff", .38)}"/>` +
+      `<stop offset=".5" stop-color="${col}"/><stop offset="1" stop-color="${mix(col, "#000000", .38)}"/></radialGradient>`;
+    COLORS.forEach((c, i) => { d += grad("pg" + i, c); });
+    d += grad("kb", KEY_BLACK.replace("#15191B", "#3A4146")) + grad("kw", KEY_WHITE);
+    $("#pegDefs").innerHTML = d;
+  }
+  function pegSVG(c) {
+    return `<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="21.6" cy="23" rx="14.6" ry="14" fill="rgba(0,0,0,.38)"/>` +
+      `<circle cx="20" cy="20" r="14.6" fill="url(#pg${c})" stroke="${mix(COLORS[c], "#000000", .5)}" stroke-width=".8"/>` +
+      `<ellipse cx="14.6" cy="13.4" rx="5.2" ry="3.2" fill="#ffffff" opacity=".5" transform="rotate(-32 14.6 13.4)"/></svg>`;
+  }
+  const holeSVG = () => `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="4.2" fill="var(--hole)"/><path d="M16.2 22.2a4.2 4.2 0 0 0 7.6 0" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="1"/></svg>`;
+  function keySVG(k) {
+    if (!k) return `<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="2.1" fill="var(--hole)"/></svg>`;
+    return `<svg viewBox="0 0 14 14" aria-hidden="true"><ellipse cx="7.7" cy="8" rx="5.4" ry="5.2" fill="rgba(0,0,0,.4)"/>` +
+      `<circle cx="7" cy="7" r="5.4" fill="url(#${k === "b" ? "kb" : "kw"})" stroke="${k === "b" ? "#000" : "#9b8a66"}" stroke-width=".5"/>` +
+      `<ellipse cx="5.2" cy="4.9" rx="1.8" ry="1.1" fill="#fff" opacity=".55"/></svg>`;
+  }
+  const colorName = c => t("colorNames")[c];
+  function keyList(b, w) { const a = []; for (let i = 0; i < LEN; i++) a.push(i < b ? "b" : i < b + w ? "w" : null); return a; }
+
+  function draftCells() {
+    let h = "";
+    for (let i = 0; i < LEN; i++) {
+      const c = draft[i];
+      h += `<button type="button" class="cell${c == null && i === sel ? " target" : ""}${i === dropSlot ? " drop" : ""}" data-slot="${i}" aria-label="${esc(t("slotAria", i + 1, c == null ? t("empty") : colorName(c)))}">` +
+        (c == null ? holeSVG() : pegSVG(c)) + `</button>`;
+    }
+    return h;
+  }
+  function staticCells(code, animate) {
+    let h = "";
+    for (let i = 0; i < LEN; i++) h += `<span class="cell${animate ? " drop" : ""}">${code ? pegSVG(code[i]) : holeSVG()}</span>`;
+    return h;
+  }
+  function keyboxHTML(list, editable, animate) {
+    if (editable) {
+      let h = "";
+      list.forEach((k, i) => {
+        h += `<button type="button" class="khole" data-key="${i}" aria-label="${esc(t("kholeAria", i + 1, k === "b" ? t("kBlack") : k === "w" ? t("kWhite") : t("empty")))}">${keySVG(k)}</button>`;
+      });
+      return `<div class="keybox editable">${h}</div>`;
+    }
+    return `<div class="keybox" aria-hidden="true">${list.map(k => `<span class="kspot${animate && k ? " drop" : ""}">${keySVG(k)}</span>`).join("")}</div>`;
+  }
+
+  function renderBoard() {
+    const v = view();
+    // hidden-code panel
+    let panel = "";
+    const revealNow = v.secretMode === "shown" && v.phase === "over";
+    const rk = revealNow ? `${S.mode}|${NET.g ? NET.g.round : L.round}|${v.guesses.length}` : "";
+    const animateReveal = revealNow && rk !== revealKey;
+    if (revealNow) revealKey = rk;
+    if (v.secretMode === "edit") panel = draftCells();
+    else if (v.secretMode === "shown" && v.secret) {
+      for (let i = 0; i < LEN; i++) panel += `<span class="cell${animateReveal ? " reveal" : ""}" role="img" aria-label="${esc(t("slotAria", i + 1, colorName(v.secret[i])))}">${pegSVG(v.secret[i])}</span>`;
+    } else {
+      panel = staticCells(null, false);
+      if (v.secretMode === "covered") panel += `<div class="shield" role="img" aria-label="${esc(t("secretAria") + ": " + t("hiddenPeg"))}"></div>`;
+    }
+    let h = `<div class="top"><div class="panel-frame${v.secretMode === "edit" ? " current" : ""}" role="group" aria-label="${esc(t("secretAria"))}">${panel}</div><div class="logo" aria-hidden="true"></div></div>`;
+
+    // guess rows, filled from the bottom up like the real board
+    const key = `${S.mode}|${NET.g ? NET.g.round : L.round}`;
+    if (key !== shownKey) { shownKey = key; shownGuesses = v.guesses.length; }
+    let rows = "";
+    for (let r = 0; r < ROWS; r++) {
+      const gu = v.guesses[r];
+      if (gu) {
+        const code = gu.slice(0, LEN), b = gu[4], w = gu[5], animate = r >= shownGuesses;
+        rows += `<div class="row" role="group" aria-label="${esc(t("rowAria", r + 1, code.map(colorName).join(", "), b, w))}">${staticCells(code, false)}${keyboxHTML(keyList(b, w), false, animate)}</div>`;
+      } else if (r === v.guesses.length && v.pending) {
+        rows += `<div class="row current" role="group" aria-label="${esc(t("pendingAria", r + 1, v.pending.map(colorName).join(", ")))}">${staticCells(v.pending, false)}${keyboxHTML(v.scoring ? keys : keyList(0, 0), v.scoring, false)}</div>`;
+      } else if (r === v.guesses.length && v.canGuess) {
+        rows += `<div class="row current">${draftCells()}${keyboxHTML(keyList(0, 0), false, false)}</div>`;
+      } else {
+        rows += `<div class="row" aria-hidden="true">${staticCells(null, false)}${keyboxHTML(keyList(0, 0), false, false)}</div>`;
+      }
+    }
+    shownGuesses = v.guesses.length;
+    boardEl.innerHTML = h + `<div class="rows">${rows}</div>`;
+    dropSlot = -1;
+
+    // the sorting tray
+    const codeMode = v.secretMode === "edit" || v.canGuess;
+    $("#trayWrap").hidden = !(codeMode || v.scoring);
+    const tray = $("#tray");
+    tray.classList.toggle("keys-mode", v.scoring);
+    if (v.scoring) {
+      tray.innerHTML =
+        `<button type="button" class="comp keyc" data-keyc="b" aria-label="${esc(t("keyBlackAria"))}"><span class="k">1</span>${trayPegs(null, "b")}<span class="lbl">${esc(t("keyBlackLbl"))}</span></button>` +
+        `<button type="button" class="comp keyc" data-keyc="w" aria-label="${esc(t("keyWhiteAria"))}"><span class="k">2</span>${trayPegs(null, "w")}<span class="lbl">${esc(t("keyWhiteLbl"))}</span></button>`;
+      $("#submitBtn").textContent = t("confirmKeys");
+      $("#submitBtn").disabled = false;
+      $("#clearBtn").disabled = keys.every(k => !k);
+    } else if (codeMode) {
+      let p = "";
+      for (let c = 0; c < v.colors; c++) {
+        const used = !v.repeats && draft.includes(c);
+        p += `<button type="button" class="comp" data-color="${c}" ${used ? "disabled" : ""} aria-label="${esc(t("swatchAria", colorName(c), c + 1))}"><span class="k">${c + 1}</span>${trayPegs(c)}</button>`;
+      }
+      tray.innerHTML = p;
+      $("#submitBtn").textContent = v.secretMode === "edit" ? t("hide") : t("check");
+      $("#submitBtn").disabled = !draft.every(x => x != null);
+      $("#clearBtn").disabled = draft.every(x => x == null);
+    }
+    const peek = S.mode === "pvp" && v.scoring;
+    $("#peekBtn").hidden = !peek;
+    if (peek) $("#peekBtn").textContent = L.peek ? t("peekHide") : t("peekShow");
+    if (!v.scoring && noteKey(trayNote) === "wrongKeys") setNote(trayNote, "");
+    $("#againBtn").hidden = !(v.phase === "over" && (S.mode !== "online" || (NET.connected && NET.g)));
+  }
+  // a little heap of pegs in a tray compartment
+  function trayPegs(c, k) {
+    if (k) {
+      const spots = [[22, 18], [38, 14], [52, 20], [30, 30], [46, 31]];
+      return `<svg viewBox="0 0 76 44" aria-hidden="true">${spots.map(([x, y]) => `<g transform="translate(${x - 9} ${y - 9}) scale(1.3)">${keySVG(k).replace(/<\/?svg[^>]*>/g, "")}</g>`).join("")}</svg>`;
+    }
+    const spots = [[22, 22], [44, 18], [58, 34], [34, 38]];
+    return `<svg viewBox="0 0 78 58" aria-hidden="true">${spots.map(([x, y]) => `<g transform="translate(${x - 14} ${y - 14}) scale(.7)">${pegSVG(c).replace(/<\/?svg[^>]*>/g, "")}</g>`).join("")}</svg>`;
+  }
+
+  // ---------- editing ----------
+  function codeEditable() { const v = view(); return v.secretMode === "edit" || v.canGuess; }
+  function nextEmpty(from) {
+    for (let k = 0; k < LEN; k++) { const i = (from + k) % LEN; if (draft[i] == null) return i; }
+    return from;
+  }
+  function addColor(c) {
+    const v = view();
+    if (!(v.secretMode === "edit" || v.canGuess) || c >= v.colors) return;
+    if (!v.repeats && draft.includes(c) && draft[sel] !== c) return;
+    draft[sel] = c; dropSlot = sel;
+    sel = nextEmpty((sel + 1) % LEN);
+    render();
+  }
+  function addKey(k) {
+    if (!view().scoring) return;
+    const i = keys.indexOf(null);
+    if (i < 0) return;
+    keys[i] = k; setNote(trayNote, ""); render();
+  }
+  function removeLast() {
+    const v = view();
+    if (v.scoring) {
+      for (let i = LEN - 1; i >= 0; i--) if (keys[i]) { keys[i] = null; render(); return; }
+      return;
+    }
+    if (!codeEditable()) return;
+    for (let i = LEN - 1; i >= 0; i--) if (draft[i] != null) { draft[i] = null; sel = i; render(); return; }
+  }
+  function clearDraft() { draft = [null, null, null, null]; sel = 0; }
+  function clearKeys() { keys = [null, null, null, null]; }
+
+  function submit() {
+    const v = view();
+    if (v.scoring) { confirmKeys(); return; }
+    if (!draft.every(x => x != null)) return;
+    const code = draft.slice();
+    if (!validCode(code, v.colors, v.repeats)) return;
+    if (v.secretMode === "edit") {
+      clearDraft();
+      if (S.mode === "solve") { L.secret = code; L.phase = "guessing"; render(); startSolver(); return; }
+      if (S.mode === "pvp") { L.secret = code; L.phase = "guessing"; render(); return; }
+      if (S.mode === "online") { onlineHide(code); return; }
+    } else if (v.canGuess) {
+      clearDraft();
+      if (S.mode === "ai") { const [b, w] = scoreCode(L.secret, code); applyLocal(code, b, w); return; }
+      if (S.mode === "pvp") { L.pending = code; L.peek = false; clearKeys(); render(); return; }
+      if (S.mode === "online") { onlineGuess(code); return; }
+    }
+  }
+  // The codemaker places the key pegs; the game only checks them against the code.
+  function confirmKeys() {
+    const v = view();
+    if (!v.scoring) return;
+    const [b, w] = keyCounts();
+    const secret = S.mode === "online" ? mySecret() : L.secret;
+    const [eb, ew] = scoreCode(secret, v.pending);
+    if (b !== eb || w !== ew) { setNote(trayNote, "wrongKeys"); return; }
+    setNote(trayNote, "");
+    clearKeys();
+    if (S.mode === "online") { onlineKeys(b, w); return; }
+    const code = L.pending;
+    L.pending = null; L.peek = false;
+    applyLocal(code, b, w);
+  }
+
+  // ---------- local modes ----------
+  function newLocal(keepRound) {
+    clearTimeout(aiTimer); aiTimer = null;
+    clearDraft(); clearKeys(); setNote(trayNote, "");
+    const round = keepRound ? L.round : L.round + 1;
+    L = { secret: null, guesses: [], pending: null, phase: "hiding", round, maker: round % 2 ? 1 : 2, colors: S.colors, repeats: S.repeats, peek: false };
+    if (S.mode === "ai") { L.secret = randomSecret(S.colors, S.repeats); L.phase = "guessing"; }
+    render();
+  }
+  function applyLocal(code, b, w) {
+    L.guesses.push([...code, b, w]);
+    const n = L.guesses.length;
+    if (S.mode === "solve") cands = cands.filter(c => { const [b2, w2] = scoreCode(c, code); return b2 === b && w2 === w; });
+    if (b === LEN || n >= ROWS || (S.mode === "solve" && !cands.length)) {
+      L.phase = "over";
+      if (S.mode === "ai") {
+        S.stats.ai.played++;
+        if (b === LEN) { S.stats.ai.solved++; if (!S.stats.ai.best || n < S.stats.ai.best) S.stats.ai.best = n; }
+      } else if (S.mode === "pvp") S.stats.pvp[L.maker] += n + (b === LEN ? 0 : 1);
+      else if (S.mode === "solve") { S.stats.solve.games++; S.stats.solve.total += b === LEN ? n : ROWS + 1; }
+      save();
+    } else if (S.mode === "solve") stepSolver();
+    render();
+  }
+  function startSolver() { cands = allCodes(L.colors, L.repeats); stepSolver(); }
+  function stepSolver() {
+    aiTimer = setTimeout(() => {
+      aiTimer = null;
+      if (S.mode !== "solve" || L.phase !== "guessing") return;
+      L.pending = L.guesses.length ? cands[randInt(cands.length)] : (L.repeats ? [0, 0, 1, 1] : [0, 1, 2, 3]);
+      clearKeys(); render();
+    }, 800);
+    renderUI();
+  }
+
+  // ---------- online play ----------
+  const peerLib = () => typeof window.Peer === "function";
+  function scheduleRetry(fn, ms) { clearTimeout(NET.retry); NET.retry = setTimeout(fn, ms); }
+  function destroyPeer(delay) { const p = NET.peer; NET.peer = null; if (p) setTimeout(() => { try { p.destroy(); } catch (e) {} }, delay || 0); }
+  function netError(err, retryFn) {
+    if (err && err.type === "browser-incompatible") { setNote(onNote, "badBrowser"); return; }
+    setNote(onNote, "noService"); scheduleRetry(retryFn, 5000);
+  }
+  const inviteLink = () => `${baseUrl()}#join-${NET.code}`;
+  function saveHost() { if (NET.role === "host") lsSet(K.host, JSON.stringify({ code: NET.code, g: NET.g, token: NET.boundToken, oppName: NET.oppName })); }
+  function validG(g) {
+    if (!g || typeof g !== "object") return null;
+    const colors = g.colors === 8 ? 8 : 6, repeats = g.repeats !== false;
+    const guesses = Array.isArray(g.guesses) ? g.guesses.filter(x => Array.isArray(x) && x.length === 6 &&
+      validCode(x.slice(0, 4), colors, true) && Number.isInteger(x[4]) && Number.isInteger(x[5]) && x[4] >= 0 && x[5] >= 0 && x[4] + x[5] <= 4).slice(0, ROWS) : [];
+    const sc = g.score && typeof g.score === "object" ? g.score : {};
+    return {
+      colors, repeats, round: Number.isInteger(g.round) ? g.round : 1, makerIsHost: g.makerIsHost !== false,
+      phase: ["hiding", "guessing", "over"].includes(g.phase) ? g.phase : "hiding", guesses,
+      revealed: validCode(g.revealed, colors, true) ? g.revealed : null,
+      score: { host: +sc.host || 0, guest: +sc.guest || 0 },
+      pending: validCode(g.pending, colors, true) ? g.pending : null
+    };
+  }
+  function resetNet() {
+    clearTimeout(NET.retry);
+    Object.assign(NET, { role: null, code: null, conn: null, pendingConn: null, connected: false, ready: false, lastSeen: 0,
+                         boundToken: null, everJoined: false, full: false, pending: false, g: null, oppName: "" });
+  }
+  function leaveOnline(forget) {
+    let delay = 0;
+    if (forget && NET.conn && NET.connected) { try { NET.conn.send({ t: "bye" }); delay = 500; } catch (e) {} }
+    destroyPeer(delay); resetNet(); clearDraft(); clearKeys();
+    if (forget) { lsDel(K.host); lsDel(K.join); lsDel(K.secret); setHash(""); }
+    if (S.mode === "online") render();
+  }
+
+  // The host keeps the official record; each player's secret code stays on their own device.
+  function hostStart(saved) {
+    if (!peerLib()) { setNote(onNote, "noLib"); return; }
+    if (!IS_WEB) { setNote(onNote, "notWeb"); return; }
+    leaveOnline(false);
+    NET.role = "host";
+    if (saved) {
+      NET.code = saved.code; NET.g = validG(saved.g); NET.boundToken = saved.token || null;
+      NET.oppName = cleanName(saved.oppName); NET.everJoined = !!saved.token;
+    } else {
+      NET.code = randomCode(6);
+      NET.g = { colors: S.colors, repeats: S.repeats, round: 1, makerIsHost: true, phase: "hiding", guesses: [], revealed: null, score: { host: 0, guest: 0 }, pending: null };
+      lsDel(K.secret);
+    }
+    lsDel(K.join);
+    saveHost(); render(); openHostPeer();
+  }
+  function openHostPeer() {
+    if (NET.role !== "host") return;
+    destroyPeer(); setNote(onNote, "connecting");
+    const peer = new Peer(PEER_PREFIX + NET.code, { debug: 0 });
+    NET.peer = peer;
+    peer.on("open", () => { if (NET.peer !== peer) return; NET.ready = true; setNote(onNote, ""); renderUI(); });
+    peer.on("connection", conn => { if (NET.peer === peer) hostAccept(conn); });
+    peer.on("disconnected", () => {
+      if (NET.peer !== peer || peer.destroyed) return;
+      NET.ready = false; renderUI();
+      scheduleRetry(() => { if (!peer.destroyed) { try { peer.reconnect(); } catch (e) { openHostPeer(); } } }, 3000);
+    });
+    peer.on("error", err => {
+      if (NET.peer !== peer) return;
+      NET.ready = false;
+      if (err.type === "unavailable-id") { setNote(onNote, "reopening"); scheduleRetry(openHostPeer, 5000); }
+      else if (err.type !== "peer-unavailable") netError(err, openHostPeer);
+      renderUI();
+    });
+  }
+  function hostAccept(conn) {
+    conn.on("data", msg => {
+      if (!msg || typeof msg !== "object") return;
+      const g = NET.g;
+      if (msg.t === "hello") {
+        const tok = typeof msg.token === "string" ? msg.token.slice(0, 40) : "";
+        if (NET.boundToken && tok !== NET.boundToken && NET.conn && NET.connected) {
+          try { conn.send({ t: "full" }); } catch (e) {}
+          setTimeout(() => { try { conn.close(); } catch (e) {} }, 800);
+          return;
+        }
+        if (NET.conn && NET.conn !== conn) { const old = NET.conn; NET.conn = null; try { old.close(); } catch (e) {} }
+        NET.conn = conn; NET.connected = true; NET.lastSeen = Date.now();
+        NET.boundToken = tok; NET.everJoined = true; NET.oppName = cleanName(msg.name);
+        saveHost(); sendState(); setNote(onNote, ""); render();
+        return;
+      }
+      if (conn !== NET.conn) return;
+      NET.lastSeen = Date.now();
+      switch (msg.t) {
+        case "hidden":
+          if (g.phase === "hiding" && !g.makerIsHost) { g.phase = "guessing"; saveHost(); render(); }
+          sendState(); break;
+        case "guess":   // the guest guessed; the host, as codemaker, places the key pegs
+          if (g.phase === "guessing" && g.makerIsHost && !g.pending && msg.n === g.guesses.length && validCode(msg.code, g.colors, g.repeats)) {
+            g.pending = msg.code; clearKeys(); saveHost(); render();
+          }
+          sendState(); break;
+        case "keys": {  // the guest, as codemaker, placed the key pegs on the host's guess
+          const b = msg.b, w = msg.w;
+          if (!g.pending || g.makerIsHost || msg.n !== g.guesses.length) { sendState(); break; }
+          if (!Number.isInteger(b) || !Number.isInteger(w) || b < 0 || w < 0 || b + w > LEN) { sendState(); break; }
+          const code = g.pending; g.pending = null;
+          addGuess(code, b, w, validCode(msg.secret, g.colors, g.repeats) ? msg.secret : null);
+          break;
+        }
+        case "nosecret":
+          if (!g.makerIsHost) { resetRound(); setNote(onNote, "noSecret"); }
+          break;
+        case "again": hostAgain(); break;
+        case "name": NET.oppName = cleanName(msg.name); saveHost(); renderUI(); break;
+      }
+    });
+    conn.on("open", () => { if (conn === NET.conn) sendState(); });
+    const lost = () => { if (conn === NET.conn) { NET.conn = null; NET.connected = false; render(); } };
+    conn.on("close", lost); conn.on("error", lost);
+  }
+  function sendState() {
+    if (!NET.conn || !NET.connected || !NET.g) return;
+    const g = NET.g;
+    try {
+      NET.conn.send({ t: "state", colors: g.colors, repeats: g.repeats, round: g.round, makerIsHost: g.makerIsHost, phase: g.phase,
+                      guesses: g.guesses, revealed: g.revealed, score: g.score, pending: g.pending, name: myName() });
+    } catch (e) {}
+  }
+  function addGuess(code, b, w, secret) {
+    const g = NET.g;
+    g.guesses.push([...code, b, w]);
+    if (b === LEN || g.guesses.length >= ROWS) {
+      g.phase = "over"; g.revealed = secret || null;
+      const pts = g.guesses.length + (b === LEN ? 0 : 1);
+      if (g.makerIsHost) g.score.host += pts; else g.score.guest += pts;
+    }
+    saveHost(); sendState(); render();
+  }
+  function resetRound() {
+    const g = NET.g;
+    g.phase = "hiding"; g.guesses = []; g.pending = null; g.revealed = null;
+    if (g.makerIsHost) lsDel(K.secret);
+    clearDraft(); clearKeys(); saveHost(); sendState(); render();
+  }
+  function hostAgain() {
+    const g = NET.g;
+    if (!g || g.phase !== "over") return;
+    g.round++; g.makerIsHost = !g.makerIsHost; g.phase = "hiding"; g.guesses = []; g.revealed = null; g.pending = null;
+    clearDraft(); clearKeys(); saveHost(); sendState(); render();
+  }
+
+  function guestStart(code) {
+    if (!peerLib()) { setNote(onNote, "noLib"); return; }
+    leaveOnline(false);
+    NET.role = "guest"; NET.code = code;
+    lsSet(K.join, code); setHash("join-" + code);
+    render(); openGuestPeer();
+  }
+  function openGuestPeer() {
+    if (NET.role !== "guest") return;
+    destroyPeer(); setNote(onNote, "connecting");
+    const peer = new Peer({ debug: 0 });
+    NET.peer = peer;
+    peer.on("open", () => { if (NET.peer !== peer) return; NET.ready = true; connectToHost(); });
+    peer.on("disconnected", () => {
+      if (NET.peer !== peer || peer.destroyed) return;
+      NET.ready = false;
+      scheduleRetry(() => { if (!peer.destroyed) { try { peer.reconnect(); } catch (e) { openGuestPeer(); } } }, 3000);
+    });
+    peer.on("error", err => {
+      if (NET.peer !== peer) return;
+      if (err.type === "peer-unavailable") { if (!NET.connected) { setNote(onNote, "waitHost"); scheduleRetry(connectToHost, 4000); } }
+      else netError(err, openGuestPeer);
+      renderUI();
+    });
+  }
+  function connectToHost() {
+    const peer = NET.peer;
+    if (NET.role !== "guest" || NET.full || NET.connected) return;
+    if (!peer || peer.destroyed) { openGuestPeer(); return; }
+    if (peer.disconnected) { try { peer.reconnect(); } catch (e) {} scheduleRetry(connectToHost, 3000); return; }
+    if (NET.pendingConn) { try { NET.pendingConn.close(); } catch (e) {} }
+    const conn = peer.connect(PEER_PREFIX + NET.code, { reliable: true });
+    NET.pendingConn = conn;
+    const giveUp = setTimeout(() => {
+      if (NET.pendingConn === conn && !NET.connected) { NET.pendingConn = null; try { conn.close(); } catch (e) {} scheduleRetry(connectToHost, 2000); }
+    }, 12000);
+    conn.on("open", () => {
+      clearTimeout(giveUp);
+      if (NET.pendingConn !== conn) { try { conn.close(); } catch (e) {} return; }
+      NET.pendingConn = null; NET.conn = conn; NET.connected = true; NET.lastSeen = Date.now();
+      setNote(onNote, "");
+      try { conn.send({ t: "hello", token: myToken(), name: myName() }); } catch (e) {}
+      renderUI();
+    });
+    conn.on("data", msg => { if (conn !== NET.conn || !msg || typeof msg !== "object") return; NET.lastSeen = Date.now(); guestData(msg); });
+    const lost = () => { clearTimeout(giveUp); if (conn === NET.conn) guestLost(); };
+    conn.on("close", lost); conn.on("error", lost);
+  }
+  function guestLost() {
+    NET.conn = null; NET.connected = false; NET.pending = false;
+    render();
+    if (NET.role === "guest" && !NET.full) { setNote(onNote, "lost"); scheduleRetry(connectToHost, 2000); }
+  }
+  function guestData(msg) {
+    if (msg.t === "state") {
+      const before = NET.g;
+      NET.g = validG(msg);
+      NET.oppName = cleanName(msg.name);
+      NET.pending = false;
+      const g = NET.g;
+      if (!before || before.round !== g.round || before.phase !== g.phase) clearDraft();
+      if (!before || String(before.pending) !== String(g.pending)) clearKeys();
+      if (["connecting", "waitHost", "lost"].includes(noteKey(onNote))) setNote(onNote, "");
+      if (amMaker() && g.phase !== "hiding" && g.phase !== "over" && !mySecret()) { try { NET.conn.send({ t: "nosecret" }); } catch (e) {} }
+      render();
+    } else if (msg.t === "full") { NET.full = true; setNote(onNote, "fullNote"); renderUI(); }
+    else if (msg.t === "bye") { leaveOnline(true); setNote(onNote, "bye"); renderUI(); }
+  }
+
+  function onlineHide(code) {
+    const g = NET.g;
+    saveSecret(code);
+    if (NET.role === "host") { g.phase = "guessing"; saveHost(); sendState(); render(); }
+    else { NET.pending = true; try { NET.conn.send({ t: "hidden" }); } catch (e) { NET.pending = false; } render(); }
+  }
+  function onlineGuess(code) {
+    const g = NET.g;
+    if (NET.role === "host") { g.pending = code; saveHost(); sendState(); render(); return; }
+    NET.pending = true;
+    try { NET.conn.send({ t: "guess", n: g.guesses.length, code }); } catch (e) { NET.pending = false; }
+    render();
+    setTimeout(() => { if (NET.pending) { NET.pending = false; render(); } }, 8000);
+  }
+  function onlineKeys(b, w) {
+    const g = NET.g, code = g.pending;
+    const finished = b === LEN || g.guesses.length + 1 >= ROWS;
+    if (NET.role === "host") { g.pending = null; addGuess(code, b, w, finished ? mySecret() : null); return; }
+    NET.pending = true;
+    try { NET.conn.send({ t: "keys", n: g.guesses.length, b, w, secret: finished ? mySecret() : null }); } catch (e) { NET.pending = false; }
+    render();
+    setTimeout(() => { if (NET.pending) { NET.pending = false; render(); } }, 8000);
+  }
+  function nextRound() {
+    if (S.mode !== "online") { newLocal(false); return; }
+    if (NET.role === "host") hostAgain();
+    else if (NET.conn) { try { NET.conn.send({ t: "again" }); } catch (e) {} }
+  }
+
+  setInterval(() => {
+    if (!NET.conn || !NET.connected) return;
+    try { NET.conn.send({ t: "ping" }); } catch (e) {}
+    if (Date.now() - NET.lastSeen > 15000) {
+      const c = NET.conn;
+      if (NET.role === "host") { NET.conn = null; NET.connected = false; render(); } else guestLost();
+      try { c.close(); } catch (e) {}
+    }
+  }, 4000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (NET.role === "guest" && !NET.connected && !NET.full) { clearTimeout(NET.retry); connectToHost(); }
+    if (NET.role === "host") {
+      if (!NET.peer || NET.peer.destroyed) openHostPeer();
+      else if (NET.peer.disconnected) { try { NET.peer.reconnect(); } catch (e) {} }
+    }
+  });
+  async function shareOrCopy(text, url, input) {
+    if (navigator.share) {
+      try { await navigator.share({ title: t("title"), text, url }); return; }
+      catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    try { await navigator.clipboard.writeText(`${text} ${url}`); setNote(onNote, "copied"); }
+    catch (e) { input.focus(); input.select(); setNote(onNote, "copyBlocked"); }
+  }
+
+  // ---------- modes ----------
+  function enterOnline() {
+    clearDraft(); clearKeys(); render();
+    let saved = null;
+    try { saved = JSON.parse(lsGet(K.host) || "null"); } catch (e) {}
+    const joined = lsGet(K.join);
+    if (saved && typeof saved.code === "string" && /^[a-z2-9]{6}$/.test(saved.code)) hostStart(saved);
+    else if (joined && /^[a-z2-9]{6}$/.test(joined)) guestStart(joined);
+  }
+  function setMode(m) {
+    if (S.mode === m) return;
+    clearTimeout(aiTimer); aiTimer = null;
+    if (S.mode === "online") leaveOnline(false);
+    S.mode = m; save(); setNote(onNote, ""); setNote(trayNote, "");
+    if (m === "online") enterOnline(); else newLocal(true);
+  }
+
+  // ---------- UI ----------
+  function oppLabel(capital) { return NET.oppName || t(capital ? "oppCap" : "opp"); }
+  function statusText() {
+    const v = view(), n = v.guesses.length, last = v.guesses[n - 1], won = !!last && last[4] === LEN;
+    switch (S.mode) {
+      case "ai":
+        if (v.phase === "over") return won ? t("aiWon", n) : t("aiLost");
+        return n ? t("guessN", n + 1) : t("aiFirst");
+      case "solve":
+        if (v.phase === "hiding") return t("solveHide");
+        if (v.phase === "over") return won ? t("solveWon", n) : t("solveLost");
+        return v.scoring ? t("solveScore") : t("thinking");
+      case "pvp": {
+        const P = L.maker === 1 ? t("p1") : t("p2"), Q = L.maker === 1 ? t("p2") : t("p1");
+        if (v.phase === "hiding") return t("pvpHide", P, Q);
+        if (v.scoring) return t("pvpScore", P, Q);
+        if (v.phase === "guessing") return t("pvpGuess", Q, n + 1);
+        const pts = t("pts", n + (won ? 0 : 1));
+        return won ? t("pvpWon", Q, n, P, pts) : t("pvpLost", Q, P, pts);
+      }
+      case "online": {
+        const g = NET.g;
+        if (!NET.role) return t("onNone");
+        if (NET.role === "host") {
+          if (!NET.ready && !NET.connected) return t("connecting");
+          if (!NET.everJoined) return t("sendInvite");
+        } else if (!g) return NET.full ? t("full") : t("connectingGame");
+        const maker = amMaker();
+        if (g.phase === "over") {
+          const pts = t("pts", n + (won ? 0 : 1));
+          if (maker) return won ? t("onWonThem", oppLabel(true), n, pts) : t("onLostThem", oppLabel(true), pts);
+          return won ? t("onWonMe", n, oppLabel(true), pts) : t("onLostMe", oppLabel(true), pts);
+        }
+        if (!NET.connected) return NET.role === "host" ? t("oppOffline", oppLabel(true)) : t("reconnecting");
+        if (g.phase === "hiding") {
+          if (!maker) return t("onHideThem", oppLabel(false));
+          return mySecret() || NET.pending ? t("onSending") : t("onHideMe", oppLabel(false));
+        }
+        if (maker) {
+          if (g.pending) return NET.pending ? t("onKeysSent") : t("onScoreMe", oppLabel(true));
+          return t("onGuessThem", oppLabel(false));
+        }
+        if (g.pending) return t("onScoreThem", oppLabel(false));
+        if (NET.pending) return t("onChecking");
+        return t("onGuessMe", n + 1);
+      }
+    }
+    return "";
+  }
+  function renderUI() {
+    const mode = S.mode, local = mode !== "online";
+    statusEl.textContent = statusText();
+    const sb = $("#scoreBlock");
+    sb.hidden = false;
+    if (mode === "ai") {
+      const st = S.stats.ai;
+      $("#sA").textContent = st.solved; $("#lA").textContent = t("cracked");
+      $("#sB").textContent = st.best || "–"; $("#lB").textContent = t("best");
+      $("#scoreNote").textContent = t("played", st.played);
+    } else if (mode === "solve") {
+      const st = S.stats.solve;
+      $("#sA").textContent = st.games; $("#lA").textContent = t("games");
+      $("#sB").textContent = st.games ? (st.total / st.games).toFixed(1) : "–"; $("#lB").textContent = t("average");
+      $("#scoreNote").textContent = "";
+    } else if (mode === "pvp") {
+      $("#sA").textContent = S.stats.pvp[1]; $("#lA").textContent = t("p1");
+      $("#sB").textContent = S.stats.pvp[2]; $("#lB").textContent = t("p2");
+      $("#scoreNote").textContent = t("pointsNote");
+    } else if (NET.g && (NET.role === "guest" || NET.everJoined)) {
+      const host = NET.role === "host", g = NET.g;
+      $("#sA").textContent = host ? g.score.host : g.score.guest; $("#lA").textContent = t("you");
+      $("#sB").textContent = host ? g.score.guest : g.score.host; $("#lB").textContent = NET.oppName || t("them");
+      $("#scoreNote").textContent = t("pointsNote");
+    } else sb.hidden = true;
+
+    $("#onlinePanel").hidden = mode !== "online";
+    const inGame = !!NET.role;
+    $("#lobby").hidden = inGame;
+    $("#ingame").hidden = !inGame;
+    $("#inviteBox").hidden = NET.role !== "host";
+    if (NET.role === "host") $("#inviteLink").value = inviteLink();
+    $("#leaveBtn").textContent = NET.role === "host" ? t("endGame") : t("leaveGame");
+    const line = $("#connLine");
+    if (inGame && (NET.everJoined || NET.role === "guest")) {
+      line.innerHTML = `<span class="dot${NET.connected ? " on" : ""}"></span>`;
+      line.append(NET.connected ? t("connectedTo", NET.oppName || t("opp")) : t("notConnected"));
+      line.hidden = false;
+    } else line.hidden = true;
+
+    $("#colorSet").disabled = $("#repSet").disabled = mode === "online" && inGame;
+    $("#newBtn").hidden = $("#resetBtn").hidden = !local;
+    $("#settingsNote").textContent = local ? t("noteLocal") : t("noteOnline");
+    $("#legend").innerHTML = `<span>${keySVG("b")}${esc(t("legendBlack"))}</span><span>${keySVG("w")}${esc(t("legendWhite"))}</span>`;
+    document.querySelector(`input[name=mode][value="${mode}"]`).checked = true;
+    document.querySelector(`input[name=colors][value="${S.colors}"]`).checked = true;
+    document.querySelector(`input[name=rep][value="${S.repeats ? 1 : 0}"]`).checked = true;
+  }
+  function render() { renderBoard(); renderUI(); }
+
+  // ---------- events ----------
+  boardEl.addEventListener("click", e => {
+    const kh = e.target.closest("button.khole");
+    if (kh) {
+      const i = +kh.dataset.key;
+      keys[i] = keys[i] === null ? "b" : keys[i] === "b" ? "w" : null;
+      setNote(trayNote, ""); render();
+      const again = boardEl.querySelector(`button.khole[data-key="${i}"]`);
+      if (again) again.focus();
+      return;
+    }
+    const b = e.target.closest("button.cell");
+    if (!b || !codeEditable()) return;
+    const i = +b.dataset.slot;
+    if (draft[i] != null) draft[i] = null;
+    sel = i; render();
+    const again = boardEl.querySelector(`button.cell[data-slot="${i}"]`);
+    if (again) again.focus();
+  });
+  $("#tray").addEventListener("click", e => {
+    const b = e.target.closest(".comp");
+    if (!b || b.disabled) return;
+    if (b.dataset.keyc) addKey(b.dataset.keyc); else addColor(+b.dataset.color);
+  });
+  $("#submitBtn").addEventListener("click", submit);
+  $("#clearBtn").addEventListener("click", () => { if (view().scoring) clearKeys(); else clearDraft(); setNote(trayNote, ""); render(); });
+  $("#peekBtn").addEventListener("click", () => { L.peek = !L.peek; render(); });
+  $("#againBtn").addEventListener("click", nextRound);
+  document.addEventListener("keydown", e => {
+    if (e.target.closest && e.target.closest("input[type=text], input:not([type]), textarea")) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const v = view();
+    if (/^[1-8]$/.test(e.key)) {
+      if (v.scoring) { if (e.key === "1") addKey("b"); else if (e.key === "2") addKey("w"); }
+      else addColor(+e.key - 1);
+      e.preventDefault();
+    } else if (e.key === "Backspace" || e.key === "Delete") {
+      if (v.scoring || codeEditable()) { removeLast(); e.preventDefault(); }
+    } else if (e.key === "Enter" && !(e.target.closest && e.target.closest("button"))) {
+      if (v.scoring || ((v.secretMode === "edit" || v.canGuess) && draft.every(x => x != null))) { submit(); e.preventDefault(); }
+    }
+  });
+
+  document.querySelectorAll("input[name=mode]").forEach(i => i.addEventListener("change", () => setMode(i.value)));
+  document.querySelectorAll("input[name=colors]").forEach(i => i.addEventListener("change", () => {
+    S.colors = +i.value; save(); if (S.mode !== "online") newLocal(true); else render();
+  }));
+  document.querySelectorAll("input[name=rep]").forEach(i => i.addEventListener("change", () => {
+    S.repeats = i.value === "1"; save(); if (S.mode !== "online") newLocal(true); else render();
+  }));
+  $("#newBtn").addEventListener("click", () => newLocal(true));
+  $("#resetBtn").addEventListener("click", () => {
+    if (S.mode === "ai") S.stats.ai = { solved: 0, played: 0, best: 0 };
+    else if (S.mode === "solve") S.stats.solve = { games: 0, total: 0 };
+    else if (S.mode === "pvp") S.stats.pvp = { 1: 0, 2: 0 };
+    save(); renderUI();
+  });
+  $("#inviteBtn").addEventListener("click", () => hostStart(null));
+  $("#shareBtn").addEventListener("click", () => shareOrCopy(t("shareInvite"), inviteLink(), $("#inviteLink")));
+  $("#leaveBtn").addEventListener("click", () => { leaveOnline(true); setNote(onNote, ""); renderUI(); });
+  let nameTimer = null;
+  $("#myName").addEventListener("input", () => {
+    clearTimeout(nameTimer);
+    nameTimer = setTimeout(() => {
+      lsSet(K.name, myName());
+      if (NET.role === "host") sendState();
+      else if (NET.conn && NET.connected) { try { NET.conn.send({ t: "name", name: myName() }); } catch (e) {} }
+    }, 600);
+  });
+
+  // ---------- language ----------
+  function detectLang() {
+    const saved = lsGet(K.lang);
+    if (saved === "en" || saved === "hu") return saved;
+    const first = (navigator.languages && navigator.languages[0]) || navigator.language || "";
+    return /^hu\b/i.test(first) ? "hu" : "en";
+  }
+  function applyLang() {
+    document.documentElement.lang = LANG;
+    document.title = t("title");
+    document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+    document.querySelectorAll("[data-i18n-aria]").forEach(el => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
+    document.querySelectorAll(".lang-btn").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === LANG)));
+    [onNote, trayNote].forEach(el => { if (el._note) el.textContent = el._note.key ? t(el._note.key, ...el._note.args) : ""; });
+    render();
+  }
+  document.querySelectorAll(".lang-btn").forEach(b => b.addEventListener("click", () => { LANG = b.dataset.lang; lsSet(K.lang, LANG); applyLang(); }));
+
+  // ---------- start ----------
+  function handleHash() {
+    const m = /^#join-([a-z2-9]{6})$/i.exec(location.hash || "");
+    if (!m) return false;
+    const code = m[1].toLowerCase();
+    if (NET.role === "guest" && NET.code === code) return true;
+    if (S.mode !== "online") { clearTimeout(aiTimer); aiTimer = null; S.mode = "online"; save(); }
+    let saved = null;
+    try { saved = JSON.parse(lsGet(K.host) || "null"); } catch (e) {}
+    if (saved && saved.code === code) { setHash(""); if (!(NET.role === "host" && NET.code === code)) hostStart(saved); else render(); }
+    else guestStart(code);
+    return true;
+  }
+  window.addEventListener("hashchange", handleHash);
+
+  buildDefs();
+  load();
+  LANG = detectLang();
+  if (!handleHash()) { if (S.mode === "online") enterOnline(); else newLocal(true); }
+  applyLang();
+})();
+</script>
+</body>
+</html>
