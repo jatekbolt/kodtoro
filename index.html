@@ -254,6 +254,7 @@
       </div>
       <div class="lang" role="group" data-i18n-aria="contrastAria">
         <button type="button" class="lang-btn contrast-btn" data-i18n="contrastBtn" aria-pressed="false"></button>
+        <button type="button" class="lang-btn sound-btn" data-i18n="soundBtn" aria-pressed="true"></button>
       </div>
     </div>
     <h1 data-i18n="name"></h1>
@@ -343,6 +344,113 @@
 </main>
 
 <script>
+  // Sound effects, synthesized live (no recordings). Shared by all the games; switched with the "Hang / Sound" button.
+  window.SFX = (function () {
+    let ctx = null, master = null, noiseBuf = null;
+    const enabled = () => { try { return localStorage.getItem("amoba-sound") !== "off"; } catch (e) { return true; } };
+    function audio() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC(); master = ctx.createGain(); master.gain.value = .45; master.connect(ctx.destination);
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+    // browsers only allow sound after a tap, so unlock on the first one
+    window.addEventListener("pointerdown", () => { if (enabled()) audio(); }, { once: true });
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    function tone(t, { type = "sine", f = 440, f2 = null, dur = .2, peak = .3, attack = .004 }) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + attack); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + .02);
+    }
+    function noise(t, { dur = .1, peak = .3, attack = .003, type = "bandpass", f = 2000, f2 = null, q = 1, flat = false }) {
+      const s = ctx.createBufferSource(), flt = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = noiseBuf; s.loop = true;
+      flt.type = type; flt.frequency.setValueAtTime(f, t); flt.Q.value = q;
+      if (f2) flt.frequency.exponentialRampToValueAtTime(f2, t + dur);
+      g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + attack);
+      if (flat) g.gain.setValueAtTime(peak, t + dur * .7);
+      g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      s.connect(flt); flt.connect(g); g.connect(master); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+    }
+    function bell(t, f, dur = 1.1, peak = .22) {
+      tone(t, { f, dur, peak, attack: .005 }); tone(t, { f: f * 2, dur: dur * .6, peak: peak * .3, attack: .005 }); tone(t, { f: f * 3.01, dur: dur * .3, peak: peak * .12, attack: .004 });
+    }
+    const S = {
+      chime(t) { bell(t, 659.25); bell(t + .14, 880); if (navigator.vibrate) { try { navigator.vibrate([60, 60, 60]); } catch (e) {} } },
+      penX(t) { noise(t, { dur: .13, peak: .16, attack: .02, f: 2600, f2: 4200, q: 1.4, flat: true }); noise(t + .19, { dur: .13, peak: .16, attack: .02, f: 2800, f2: 4400, q: 1.4, flat: true }); },
+      penO(t) { noise(t, { dur: .26, peak: .15, attack: .03, f: 3600, f2: 2400, q: 1.3, flat: true }); },
+      dice(t) {
+        let tt = t; const n = 11;
+        for (let k = 0; k < n; k++) {
+          const fade = 1 - k / n;
+          noise(tt, { dur: .025, peak: .35 * fade + .05, attack: .001, f: rnd(1600, 3400), q: 2.5 });
+          tone(tt, { type: "triangle", f: rnd(180, 300), dur: .04, peak: .08 * fade + .02, attack: .001 });
+          tt += rnd(.025, .07) + k * .006;
+        }
+        tone(tt + .02, { f: 140, f2: 70, dur: .14, peak: .22, attack: .002 });
+      },
+      hold(t) { tone(t, { type: "triangle", f: 1400, f2: 900, dur: .06, peak: .15, attack: .001 }); },
+      cardFlip(t) { noise(t, { dur: .07, peak: .25, attack: .004, type: "highpass", f: 1800, q: .7 }); noise(t + .06, { dur: .03, peak: .3, attack: .001, f: 3200, q: 3 }); },
+      pair(t) { bell(t, 783.99, .5, .16); bell(t + .09, 1046.5, .7, .16); },
+      woodPlace(t) {
+        tone(t, { f: 820, f2: 420, dur: .09, peak: .45, attack: .001 });
+        noise(t, { dur: .02, peak: .25, attack: .001, type: "lowpass", f: 3500, q: .5 });
+        tone(t + .004, { type: "triangle", f: 210, f2: 150, dur: .1, peak: .18, attack: .002 });
+      },
+      woodSlide(t) { noise(t, { dur: .3, peak: .07, attack: .06, type: "lowpass", f: 900, f2: 700, q: .5, flat: true }); S.woodPlace(t + .28); },
+      millDing(t) { bell(t, 523.25, .7, .18); bell(t + .1, 659.25, .7, .16); bell(t + .2, 783.99, .9, .16); },
+      take(t) { tone(t, { f: 600, f2: 1400, dur: .12, peak: .2, attack: .002 }); noise(t, { dur: .05, peak: .15, attack: .001, f: 2500, q: 2 }); },
+      peg(t) {
+        tone(t, { type: "triangle", f: 2300, f2: 1700, dur: .035, peak: .22, attack: .001 });
+        noise(t, { dur: .015, peak: .2, attack: .001, type: "highpass", f: 4000, q: .7 });
+        tone(t + .01, { f: 520, f2: 380, dur: .05, peak: .12, attack: .001 });
+      },
+      keyPeg(t) { tone(t, { type: "triangle", f: 3200, f2: 2600, dur: .025, peak: .18, attack: .001 }); tone(t + .07, { type: "triangle", f: 3100, f2: 2500, dur: .025, peak: .15, attack: .001 }); },
+      discFlip(t, n) {
+        const k = Math.max(1, Math.min(6, n || 3));
+        for (let i = 0; i < k; i++) {
+          tone(t + i * .09, { type: "triangle", f: 1500 - i * 60, f2: 1000, dur: .03, peak: .16, attack: .001 });
+          tone(t + i * .09 + .03, { type: "triangle", f: 1100 - i * 50, f2: 800, dur: .03, peak: .12, attack: .001 });
+        }
+      },
+      splash(t) {
+        noise(t, { dur: .8, peak: .35, attack: .01, type: "lowpass", f: 2600, f2: 260, q: .8 });
+        for (let k = 0; k < 5; k++) tone(t + .15 + k * rnd(.06, .11), { f: rnd(500, 1100), f2: rnd(900, 1600), dur: .05, peak: .05, attack: .005 });
+      },
+      boom(t) {
+        tone(t, { f: 95, f2: 32, dur: .7, peak: .8, attack: .003 });
+        noise(t, { dur: 1.0, peak: .5, attack: .004, type: "lowpass", f: 1400, f2: 150, q: .6 });
+        noise(t, { dur: .08, peak: .35, attack: .001, type: "highpass", f: 2500, q: .5 });
+      },
+      sunk(t) {
+        S.boom(t);
+        tone(t + .45, { type: "sawtooth", f: 220, f2: 70, dur: 1.2, peak: .06, attack: .05 });
+        noise(t + .5, { dur: 1.3, peak: .18, attack: .2, type: "lowpass", f: 500, f2: 120, q: .5 });
+      },
+      win(t) {
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, k) => tone(t + k * .11, { type: "triangle", f, dur: k === 3 ? .9 : .25, peak: .22, attack: .005 }));
+        bell(t + .44, 1567.98, 1.0, .07);
+      },
+      lose(t) { [[392, 0], [329.63, .22], [261.63, .44]].forEach(([f, d], k) => tone(t + d, { f, dur: k === 2 ? .9 : .35, peak: .2, attack: .01 })); }
+    };
+    return {
+      enabled,
+      play(name, delay, arg) {
+        if (!enabled() || !S[name]) return;
+        try { if (!audio()) return; S[name](ctx.currentTime + .02 + (delay || 0), arg); } catch (e) {}
+      }
+    };
+  })();
+</script>
+<script>
 (function () {
   const ROWS = 10, LEN = 4;
   // The six colors of the classic Hungarian set, plus two extras for the 8-color game.
@@ -361,7 +469,7 @@
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const T = {
     en: {
-      name: "Codebreaker", title: "Codebreaker", allGames: "← All games", contrastAria: "Visibility", contrastBtn: "High-visibility mode", themeAria: "Appearance", themeAuto: "Auto", themeLight: "Light", themeDark: "Dark",
+      name: "Codebreaker", title: "Codebreaker", allGames: "← All games", contrastAria: "Visibility", contrastBtn: "High-visibility mode", soundBtn: "Sound", themeAria: "Appearance", themeAuto: "Auto", themeLight: "Light", themeDark: "Dark",
       rules: "One player hides a code of four colors, and the other has ten guesses to crack it. After each guess, the codemaker answers with key pegs: a black peg for each right color in the right place, and a white peg for each right color in the wrong place.",
       scoreAria: "Score", boardAria: "Game board", settingsAria: "Game settings",
       legendMode: "Play", optAi: "Crack the computer’s code", optSolve: "The computer cracks yours", optPvp: "Someone next to you", optOnline: "Someone online",
@@ -426,7 +534,7 @@
       shareInvite: "Let’s play Codebreaker! Tap to join my game:"
     },
     hu: {
-      name: "Kódtörő", title: "Kódtörő", allGames: "← Összes játék", contrastAria: "Láthatóság", contrastBtn: "Színtévesztő mód", themeAria: "Megjelenés", themeAuto: "Auto", themeLight: "Világos", themeDark: "Sötét",
+      name: "Kódtörő", title: "Kódtörő", allGames: "← Összes játék", contrastAria: "Láthatóság", contrastBtn: "Színtévesztő mód", soundBtn: "Hang", themeAria: "Megjelenés", themeAuto: "Auto", themeLight: "Világos", themeDark: "Sötét",
       rules: "Az egyik játékos elrejt egy négy színből álló kódot, a másiknak tíz tippje van megfejteni. Minden tipp után a kód rejtője találatjelzőkkel válaszol: fekete jelző jár minden jó színért jó helyen, fehér jelző minden jó színért rossz helyen.",
       scoreAria: "Eredmény", boardAria: "Játéktábla", settingsAria: "Beállítások",
       legendMode: "Játékmód", optAi: "Fejtsd meg a gép kódját", optSolve: "A gép fejti meg a tiédet", optPvp: "Valaki melletted", optOnline: "Valaki online",
@@ -768,7 +876,7 @@
     const v = view();
     if (!(v.secretMode === "edit" || v.canGuess) || c >= v.colors) return;
     if (!v.repeats && draft.includes(c) && draft[sel] !== c) return;
-    draft[sel] = c; dropSlot = sel;
+    draft[sel] = c; dropSlot = sel; SFX.play("peg");
     sel = nextEmpty((sel + 1) % LEN);
     render();
   }
@@ -776,7 +884,7 @@
     if (!view().scoring) return;
     const i = keys.indexOf(null);
     if (i < 0) return;
-    keys[i] = k; setNote(trayNote, ""); render();
+    keys[i] = k; SFX.play("keyPeg"); setNote(trayNote, ""); render();
   }
   function removeLast() {
     const v = view();
@@ -1201,7 +1309,28 @@
     }
     return "";
   }
+
+  // ---------- sounds ----------
+  let sndG = -1, sndOver = false, sndMine = false, sndKey = "";
+  function soundWatch() {
+    const v = view(), key = S.mode + "|" + (NET.g ? NET.g.round : L.round);
+    if (key !== sndKey) { sndKey = key; sndG = v.guesses.length; sndOver = v.phase === "over"; }
+    if (v.guesses.length === sndG + 1) SFX.play("keyPeg", .05);
+    sndG = v.guesses.length;
+    const over = v.phase === "over";
+    if (over && !sndOver) {
+      const last = v.guesses[v.guesses.length - 1], cracked = !!last && last[4] === LEN;
+      const breakerIsMe = S.mode === "ai" || (S.mode === "online" && !amMaker());
+      const good = S.mode === "pvp" ? true : breakerIsMe ? cracked : !cracked;
+      SFX.play(good ? "win" : "lose", .3);
+    }
+    sndOver = over;
+    const mine = S.mode === "online" && (v.secretMode === "edit" || v.canGuess || v.scoring);
+    if (mine && !sndMine) SFX.play("chime", .2);
+    sndMine = mine;
+  }
   function renderUI() {
+    soundWatch();
     const mode = S.mode, local = mode !== "online";
     statusEl.textContent = statusText();
     const sb = $("#scoreBlock");
@@ -1256,7 +1385,7 @@
     const kh = e.target.closest("button.khole");
     if (kh) {
       const i = +kh.dataset.key;
-      keys[i] = keys[i] === null ? "b" : keys[i] === "b" ? "w" : null;
+      keys[i] = keys[i] === null ? "b" : keys[i] === "b" ? "w" : null; SFX.play("keyPeg");
       setNote(trayNote, ""); render();
       const again = boardEl.querySelector(`button.khole[data-key="${i}"]`);
       if (again) again.focus();
@@ -1371,6 +1500,7 @@
     function mark() {
       document.querySelectorAll(".theme-btn").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeChoice === current())));
       document.querySelectorAll(".contrast-btn").forEach(b => b.setAttribute("aria-pressed", String(root.getAttribute("data-contrast") === "high")));
+      document.querySelectorAll(".sound-btn").forEach(b => b.setAttribute("aria-pressed", String(window.SFX ? SFX.enabled() : true)));
     }
     document.querySelectorAll(".theme-btn").forEach(b => b.addEventListener("click", () => {
       const v = b.dataset.themeChoice;
@@ -1384,6 +1514,12 @@
       try { if (on) localStorage.setItem("amoba-contrast", "high"); else localStorage.removeItem("amoba-contrast"); } catch (e) {}
       mark();
       window.dispatchEvent(new Event("contrastchange"));
+    }));
+    document.querySelectorAll(".sound-btn").forEach(b => b.addEventListener("click", () => {
+      const on = !(window.SFX && SFX.enabled());
+      try { if (on) localStorage.removeItem("amoba-sound"); else localStorage.setItem("amoba-sound", "off"); } catch (e) {}
+      mark();
+      if (on && window.SFX) SFX.play("hold");
     }));
     mark();
   })();
