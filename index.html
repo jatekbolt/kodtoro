@@ -28,6 +28,9 @@
     padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  :root[data-contrast="high"] {
+    --grid: #6F8BA8; --muted: #34414E; --edge: #7C8DA0; --text: #0E1620; --ink-x: #0033A0;
+  }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --desk: #0F151D; --paper: #18212D; --table: #1A222D; --ink-x: #86A9FF; --text: #E2E8F0; --muted: #9AA8B8; --edge: #2A3647;
@@ -38,6 +41,14 @@
     --desk: #0F151D; --paper: #18212D; --table: #1A222D; --ink-x: #86A9FF; --text: #E2E8F0; --muted: #9AA8B8; --edge: #2A3647;
     color-scheme: dark;
   }
+  @media (prefers-color-scheme: dark) {
+    :root[data-contrast="high"]:not([data-theme="light"]) { --grid: #6A84A3; --muted: #D2DBE5; --edge: #6A7C92; --text: #FFFFFF; --ink-x: #A8C2FF; }
+  }
+  :root[data-contrast="high"][data-theme="dark"] { --grid: #6A84A3; --muted: #D2DBE5; --edge: #6A7C92; --text: #FFFFFF; --ink-x: #A8C2FF; }
+  :root[data-contrast="high"] *:focus-visible { outline-width: 3px !important; }
+  :root[data-contrast="high"] .lang-btn[aria-pressed="true"] { border-width: 2.5px; }
+  :root[data-contrast="high"] .row.current, :root[data-contrast="high"] .panel-frame.current { box-shadow: 0 0 0 4px #FFD400; }
+  :root[data-contrast="high"] .cell.target, :root[data-contrast="high"] .keybox.editable { box-shadow: inset 2px 2px 3px rgba(0,0,0,.45), 0 0 0 4px #FFD400; }
   *, *::before, *::after { box-sizing: inherit; }
   [hidden] { display: none !important; }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); }
@@ -58,7 +69,8 @@
     }
   }
   .intro { grid-area: intro; }
-  .lang { display: flex; gap: .35rem; margin: 0 0 .9rem; }
+  .pills { display: flex; flex-wrap: wrap; gap: .5rem 1.1rem; margin: 0 0 .9rem; }
+  .lang { display: flex; gap: .35rem; margin: 0; }
   .home { display: inline-block; margin: 0 0 .7rem; font-size: .9rem; color: var(--ink-x); text-underline-offset: 3px; }
   .home:focus-visible { outline: 2px solid var(--ink-x); outline-offset: 2px; border-radius: 4px; }
   .lang-btn {
@@ -218,15 +230,31 @@
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<script>
+  try {
+    var th = localStorage.getItem("amoba-theme"); if (th === "light" || th === "dark") document.documentElement.setAttribute("data-theme", th);
+    if (localStorage.getItem("amoba-contrast") === "high") document.documentElement.setAttribute("data-contrast", "high");
+  } catch (e) {}
+</script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs id="pegDefs"></defs></svg>
 <main class="layout">
   <header class="intro">
     <a class="home" href="/" data-i18n="allGames"></a>
-    <div class="lang" role="group" aria-label="Language / Nyelv">
-      <button type="button" class="lang-btn" data-lang="hu" lang="hu">Magyar</button>
-      <button type="button" class="lang-btn" data-lang="en" lang="en">English</button>
+    <div class="pills">
+      <div class="lang" role="group" aria-label="Language / Nyelv">
+        <button type="button" class="lang-btn" data-lang="hu" lang="hu">Magyar</button>
+        <button type="button" class="lang-btn" data-lang="en" lang="en">English</button>
+      </div>
+      <div class="lang" role="group" data-i18n-aria="themeAria">
+        <button type="button" class="lang-btn theme-btn" data-theme-choice="auto" data-i18n="themeAuto"></button>
+        <button type="button" class="lang-btn theme-btn" data-theme-choice="light" data-i18n="themeLight"></button>
+        <button type="button" class="lang-btn theme-btn" data-theme-choice="dark" data-i18n="themeDark"></button>
+      </div>
+      <div class="lang" role="group" data-i18n-aria="contrastAria">
+        <button type="button" class="lang-btn contrast-btn" data-i18n="contrastBtn" aria-pressed="false"></button>
+      </div>
     </div>
     <h1 data-i18n="name"></h1>
     <p class="rules" data-i18n="rules"></p>
@@ -333,7 +361,7 @@
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const T = {
     en: {
-      name: "Codebreaker", title: "Codebreaker", allGames: "← All games",
+      name: "Codebreaker", title: "Codebreaker", allGames: "← All games", contrastAria: "Visibility", contrastBtn: "High-visibility mode", themeAria: "Appearance", themeAuto: "Auto", themeLight: "Light", themeDark: "Dark",
       rules: "One player hides a code of four colors, and the other has ten guesses to crack it. After each guess, the codemaker answers with key pegs: a black peg for each right color in the right place, and a white peg for each right color in the wrong place.",
       scoreAria: "Score", boardAria: "Game board", settingsAria: "Game settings",
       legendMode: "Play", optAi: "Crack the computer’s code", optSolve: "The computer cracks yours", optPvp: "Someone next to you", optOnline: "Someone online",
@@ -398,7 +426,7 @@
       shareInvite: "Let’s play Codebreaker! Tap to join my game:"
     },
     hu: {
-      name: "Kódtörő", title: "Kódtörő", allGames: "← Összes játék",
+      name: "Kódtörő", title: "Kódtörő", allGames: "← Összes játék", contrastAria: "Láthatóság", contrastBtn: "Színtévesztő mód", themeAria: "Megjelenés", themeAuto: "Auto", themeLight: "Világos", themeDark: "Sötét",
       rules: "Az egyik játékos elrejt egy négy színből álló kódot, a másiknak tíz tippje van megfejteni. Minden tipp után a kód rejtője találatjelzőkkel válaszol: fekete jelző jár minden jó színért jó helyen, fehér jelző minden jó színért rossz helyen.",
       scoreAria: "Eredmény", boardAria: "Játéktábla", settingsAria: "Beállítások",
       legendMode: "Játékmód", optAi: "Fejtsd meg a gép kódját", optSolve: "A gép fejti meg a tiédet", optPvp: "Valaki melletted", optOnline: "Valaki online",
@@ -464,6 +492,7 @@
     }
   };
   let LANG = "en";
+  const HC = () => document.documentElement.getAttribute("data-contrast") === "high";
   function t(k, ...a) {
     const v = (T[LANG] && k in T[LANG]) ? T[LANG][k] : T.en[k];
     return typeof v === "function" ? v(...a) : (v == null ? "" : v);
@@ -607,16 +636,21 @@
     d += grad("kb", KEY_BLACK.replace("#15191B", "#3A4146")) + grad("kw", KEY_WHITE);
     $("#pegDefs").innerHTML = d;
   }
+  const isLight = hex => { const n = parseInt(hex.slice(1), 16); return .299 * (n >> 16) + .587 * ((n >> 8) & 255) + .114 * (n & 255) > 150; };
   function pegSVG(c) {
+    const hc = HC();
+    // in high-visibility mode every peg also carries its number, so colors never have to be told apart by hue alone
     return `<svg viewBox="0 0 40 40" aria-hidden="true"><ellipse cx="21.6" cy="23" rx="14.6" ry="14" fill="rgba(0,0,0,.38)"/>` +
-      `<circle cx="20" cy="20" r="14.6" fill="url(#pg${c})" stroke="${mix(COLORS[c], "#000000", .5)}" stroke-width=".8"/>` +
-      `<ellipse cx="14.6" cy="13.4" rx="5.2" ry="3.2" fill="#ffffff" opacity=".5" transform="rotate(-32 14.6 13.4)"/></svg>`;
+      `<circle cx="20" cy="20" r="14.6" fill="url(#pg${c})" stroke="${hc ? "#000" : mix(COLORS[c], "#000000", .5)}" stroke-width="${hc ? 2 : .8}"/>` +
+      `<ellipse cx="14.6" cy="13.4" rx="5.2" ry="3.2" fill="#ffffff" opacity="${hc ? .25 : .5}" transform="rotate(-32 14.6 13.4)"/>` +
+      (hc ? `<text x="20" y="21.5" text-anchor="middle" dominant-baseline="middle" font-family="Atkinson Hyperlegible, system-ui, sans-serif" font-weight="700" font-size="17" fill="${isLight(COLORS[c]) ? "#000" : "#fff"}">${c + 1}</text>` : "") +
+      `</svg>`;
   }
   const holeSVG = () => `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="4.2" fill="var(--hole)"/><path d="M16.2 22.2a4.2 4.2 0 0 0 7.6 0" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="1"/></svg>`;
   function keySVG(k) {
     if (!k) return `<svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="2.1" fill="var(--hole)"/></svg>`;
     return `<svg viewBox="0 0 14 14" aria-hidden="true"><ellipse cx="7.7" cy="8" rx="5.4" ry="5.2" fill="rgba(0,0,0,.4)"/>` +
-      `<circle cx="7" cy="7" r="5.4" fill="url(#${k === "b" ? "kb" : "kw"})" stroke="${k === "b" ? "#000" : "#9b8a66"}" stroke-width=".5"/>` +
+      `<circle cx="7" cy="7" r="5.4" fill="url(#${k === "b" ? "kb" : "kw"})" stroke="${HC() ? (k === "b" ? "#fff" : "#000") : k === "b" ? "#000" : "#9b8a66"}" stroke-width="${HC() ? 1.2 : .5}"/>` +
       `<ellipse cx="5.2" cy="4.9" rx="1.8" ry="1.1" fill="#fff" opacity=".55"/></svg>`;
   }
   const colorName = c => t("colorNames")[c];
@@ -1300,11 +1334,11 @@
     document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
     document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
     document.querySelectorAll("[data-i18n-aria]").forEach(el => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
-    document.querySelectorAll(".lang-btn").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === LANG)));
+    document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === LANG)));
     [onNote, trayNote].forEach(el => { if (el._note) el.textContent = el._note.key ? t(el._note.key, ...el._note.args) : ""; });
     render();
   }
-  document.querySelectorAll(".lang-btn").forEach(b => b.addEventListener("click", () => { LANG = b.dataset.lang; lsSet(K.lang, LANG); applyLang(); }));
+  document.querySelectorAll(".lang-btn[data-lang]").forEach(b => b.addEventListener("click", () => { LANG = b.dataset.lang; lsSet(K.lang, LANG); applyLang(); }));
 
   // ---------- start ----------
   function handleHash() {
@@ -1322,11 +1356,37 @@
   window.addEventListener("hashchange", handleHash);
 
   buildDefs();
+  window.addEventListener("contrastchange", () => render());
   load();
   LANG = detectLang();
   if (!handleHash()) { if (S.mode === "online") enterOnline(); else newLocal(true); }
   applyLang();
 })();
+</script>
+<script>
+  // Appearance and high-visibility mode: shared by all the games on this site.
+  (function () {
+    const root = document.documentElement;
+    function current() { const v = root.getAttribute("data-theme"); return v === "light" || v === "dark" ? v : "auto"; }
+    function mark() {
+      document.querySelectorAll(".theme-btn").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.themeChoice === current())));
+      document.querySelectorAll(".contrast-btn").forEach(b => b.setAttribute("aria-pressed", String(root.getAttribute("data-contrast") === "high")));
+    }
+    document.querySelectorAll(".theme-btn").forEach(b => b.addEventListener("click", () => {
+      const v = b.dataset.themeChoice;
+      if (v === "auto") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", v);
+      try { if (v === "auto") localStorage.removeItem("amoba-theme"); else localStorage.setItem("amoba-theme", v); } catch (e) {}
+      mark();
+    }));
+    document.querySelectorAll(".contrast-btn").forEach(b => b.addEventListener("click", () => {
+      const on = root.getAttribute("data-contrast") !== "high";
+      if (on) root.setAttribute("data-contrast", "high"); else root.removeAttribute("data-contrast");
+      try { if (on) localStorage.setItem("amoba-contrast", "high"); else localStorage.removeItem("amoba-contrast"); } catch (e) {}
+      mark();
+      window.dispatchEvent(new Event("contrastchange"));
+    }));
+    mark();
+  })();
 </script>
 </body>
 </html>
